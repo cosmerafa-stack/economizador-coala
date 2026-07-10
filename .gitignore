@@ -46,3 +46,9 @@ next-env.d.ts
 # local tooling / debug artifacts
 /.claude
 probe-screenshot.png
+
+# cloudflare / opennext
+/.open-next
+/.wrangler
+cloudflare-env.d.ts
+.dev.vars
