@@ -19,6 +19,7 @@ export default function CarrinhoPage() {
   const location = useAppStore((s) => s.location);
   const removeFromCart = useAppStore((s) => s.removeFromCart);
   const updateCartItemQuantity = useAppStore((s) => s.updateCartItemQuantity);
+  const clearCart = useAppStore((s) => s.clearCart);
   const goToSearch = useGoToSearch();
   const [tracandoRota, setTracandoRota] = useState(false);
 
@@ -51,6 +52,13 @@ export default function CarrinhoPage() {
     }
     return [...byId.values()];
   }, [cart]);
+
+  function handleLimparCarrinho() {
+    if (cart.length === 0) return;
+    if (window.confirm("Tem certeza que deseja remover todos os itens do carrinho?")) {
+      clearCart();
+    }
+  }
 
   function handleTracarRota() {
     if (stopStores.length === 0) return;
@@ -284,6 +292,16 @@ export default function CarrinhoPage() {
               </span>
             </div>
           </div>
+        )}
+
+        {cart.length > 0 && (
+          <button
+            onClick={handleLimparCarrinho}
+            className="animate-fade-slide-up text-center text-xs font-semibold text-red-500"
+            style={{ animationDelay: "0.15s" }}
+          >
+            Limpar carrinho
+          </button>
         )}
       </main>
 
