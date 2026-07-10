@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore, getEffectiveLocation } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
@@ -9,7 +9,9 @@ import { formatCurrency, formatTimeAgo } from "@/lib/format";
 import { googleMapsUrl } from "@/lib/maps";
 import { nearestNeighborOrder, googleMapsRouteUrl } from "@/lib/route";
 import { useGoToSearch } from "@/lib/useGoToSearch";
-import { Store } from "@/lib/types";
+import { CartItem, Store } from "@/lib/types";
+
+const UNDO_TIMEOUT_MS = 6000;
 
 export default function CarrinhoPage() {
   const router = useRouter();
@@ -20,8 +22,31 @@ export default function CarrinhoPage() {
   const removeFromCart = useAppStore((s) => s.removeFromCart);
   const updateCartItemQuantity = useAppStore((s) => s.updateCartItemQuantity);
   const clearCart = useAppStore((s) => s.clearCart);
+  const addToCart = useAppStore((s) => s.addToCart);
   const goToSearch = useGoToSearch();
   const [tracandoRota, setTracandoRota] = useState(false);
+  const [lastRemoved, setLastRemoved] = useState<CartItem | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleRemove(item: CartItem) {
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    removeFromCart(item.id);
+    setLastRemoved(item);
+    undoTimeoutRef.current = setTimeout(() => setLastRemoved(null), UNDO_TIMEOUT_MS);
+  }
+
+  function handleUndoRemove() {
+    if (!lastRemoved) return;
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    addToCart(lastRemoved);
+    setLastRemoved(null);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -100,6 +125,20 @@ export default function CarrinhoPage() {
       </div>
 
       <main className="flex flex-1 flex-col gap-3 px-4 py-4 pb-4">
+        {lastRemoved && (
+          <div className="animate-fade-slide-up flex items-center justify-between gap-3 rounded-2xl bg-gray-800 px-4 py-3 text-sm text-white shadow-sm">
+            <span className="truncate">
+              {lastRemoved.priceResult.productName} removido
+            </span>
+            <button
+              onClick={handleUndoRemove}
+              className="shrink-0 font-bold text-ml-blue"
+            >
+              Desfazer
+            </button>
+          </div>
+        )}
+
         {stopStores.length > 0 && (
           <button
             onClick={handleTracarRota}
@@ -143,7 +182,7 @@ export default function CarrinhoPage() {
                   {item.priceResult.productName}
                 </p>
                 <button
-                  onClick={() => removeFromCart(item.id)}
+                  onClick={() => handleRemove(item)}
                   aria-label="Remover"
                   className="shrink-0 text-lg leading-none text-gray-300"
                 >
@@ -175,7 +214,7 @@ export default function CarrinhoPage() {
                   <button
                     onClick={() =>
                       item.quantity <= 1
-                        ? removeFromCart(item.id)
+                        ? handleRemove(item)
                         : updateCartItemQuantity(item.id, item.quantity - 1)
                     }
                     aria-label={
