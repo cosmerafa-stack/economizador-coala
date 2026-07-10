@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchLivePrices, SourceUnavailableError } from "@/lib/precoDaHora";
+import { searchPrices } from "@/lib/precoDaHora";
 import { searchProducts, DEFAULT_LOCATION } from "@/lib/mockData";
 import { SortOption } from "@/lib/types";
 
@@ -30,18 +30,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await searchLivePrices({
+    const { results, source, cachedAt } = await searchPrices({
       query,
       lat,
       lng,
       radiusKm,
       sort,
     });
-    return NextResponse.json({ results, source: "live" });
-  } catch (err) {
-    if (err instanceof SourceUnavailableError) {
-      return NextResponse.json({ results: [], source: "unavailable" });
-    }
+    return NextResponse.json({ results, source, cachedAt });
+  } catch {
     const results = searchProducts({
       query,
       location: { lat, lng },

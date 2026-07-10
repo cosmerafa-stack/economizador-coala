@@ -1,18 +1,22 @@
 import "server-only";
-import { PriceResult, SortOption } from "./types";
+import { neon } from "@neondatabase/serverless";
+import { haversineDistanceKm } from "./geo";
+import { sortResults } from "./sort";
+import { Coordinates, PriceResult, SortOption } from "./types";
+
+const sql = neon(process.env.DATABASE_URL as string);
 
 const BASE_URL = "https://precodahora.ba.gov.br/produtos/";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const SESSION_TTL_MS = 10 * 60 * 1000;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // stale cache is only used as a last-resort fallback
 
 interface Session {
   cookie: string;
   csrfToken: string;
   fetchedAt: number;
 }
-
-let cachedSession: Session | null = null;
 
 function extractCsrfToken(html: string): string | null {
   const match = html.match(/name="csrf_token"[^>]*value="([^"]+)"/);
@@ -39,19 +43,38 @@ async function bootstrapSession(): Promise<Session> {
     throw new Error("Não foi possível obter sessão/csrf da fonte de preços");
   }
 
-  return { cookie, csrfToken, fetchedAt: Date.now() };
+  const session: Session = { cookie, csrfToken, fetchedAt: Date.now() };
+
+  await sql.query(
+    `insert into scrape_session (id, cookie, csrf_token, fetched_at)
+     values (1, $1, $2, now())
+     on conflict (id) do update set cookie = $1, csrf_token = $2, fetched_at = now()`,
+    [session.cookie, session.csrfToken]
+  );
+
+  return session;
 }
 
+// Cloudflare Workers don't reliably keep in-memory module state across
+// requests (each invocation may land on a fresh isolate), so the session
+// is persisted in Postgres instead — this keeps us to ~1 bootstrap every
+// 10 minutes instead of one per search, which is what was tripping the
+// upstream rate limit after moving off a long-lived Node process.
 async function ensureSession(forceRefresh = false): Promise<Session> {
-  if (
-    !forceRefresh &&
-    cachedSession &&
-    Date.now() - cachedSession.fetchedAt < SESSION_TTL_MS
-  ) {
-    return cachedSession;
+  if (!forceRefresh) {
+    const rows = (await sql.query(
+      "select cookie, csrf_token, fetched_at from scrape_session where id = 1"
+    )) as { cookie: string; csrf_token: string; fetched_at: string }[];
+    const row = rows[0];
+    if (row && Date.now() - new Date(row.fetched_at).getTime() < SESSION_TTL_MS) {
+      return {
+        cookie: row.cookie,
+        csrfToken: row.csrf_token,
+        fetchedAt: new Date(row.fetched_at).getTime(),
+      };
+    }
   }
-  cachedSession = await bootstrapSession();
-  return cachedSession;
+  return bootstrapSession();
 }
 
 const SORT_TO_ORDENAR: Record<SortOption, string> = {
@@ -190,4 +213,71 @@ export async function searchLivePrices(
   }
 
   return (data.resultado ?? []).map(mapResult);
+}
+
+function normalizeCacheKey(query: string): string {
+  return query.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+async function readCache(query: string): Promise<{ results: PriceResult[]; fetchedAt: string } | null> {
+  const rows = (await sql.query(
+    "select results, fetched_at from price_search_cache where cache_key = $1",
+    [normalizeCacheKey(query)]
+  )) as { results: PriceResult[]; fetched_at: string }[];
+  const row = rows[0];
+  if (!row) return null;
+  if (Date.now() - new Date(row.fetched_at).getTime() > CACHE_TTL_MS) return null;
+  return { results: row.results, fetchedAt: row.fetched_at };
+}
+
+async function writeCache(query: string, results: PriceResult[]): Promise<void> {
+  await sql.query(
+    `insert into price_search_cache (cache_key, query, results, fetched_at)
+     values ($1, $2, $3, now())
+     on conflict (cache_key) do update set results = $3, query = $2, fetched_at = now()`,
+    [normalizeCacheKey(query), query, JSON.stringify(results)]
+  );
+}
+
+export type SearchSource = "live" | "cache" | "unavailable";
+
+export interface SearchResponse {
+  results: PriceResult[];
+  source: SearchSource;
+  cachedAt?: string;
+}
+
+// Tries the live scrape first; if the upstream is unavailable (rate limited
+// or erroring), falls back to the last successful results for this same
+// query term, with distances recalculated for the caller's current location.
+export async function searchPrices(
+  params: SearchLivePriceParams
+): Promise<SearchResponse> {
+  try {
+    const results = await searchLivePrices(params);
+    writeCache(params.query, results).catch(() => {});
+    return { results, source: "live" };
+  } catch (err) {
+    const cached = await readCache(params.query).catch(() => null);
+    if (!cached) {
+      if (err instanceof SourceUnavailableError) {
+        return { results: [], source: "unavailable" };
+      }
+      throw err;
+    }
+
+    const location: Coordinates = { lat: params.lat, lng: params.lng };
+    const recalculated = cached.results
+      .map((item) => ({
+        ...item,
+        distanceKm: haversineDistanceKm(location, item.store.coordinates),
+      }))
+      .filter((item) => item.distanceKm <= params.radiusKm);
+
+    return {
+      results: sortResults(recalculated, params.sort),
+      source: "cache",
+      cachedAt: cached.fetchedAt,
+    };
+  }
 }

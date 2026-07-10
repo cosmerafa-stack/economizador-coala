@@ -24,3 +24,22 @@ create table if not exists revendedor_sessions (
 );
 create index if not exists revendedor_sessions_account_idx on revendedor_sessions (account_id);
 create index if not exists revendedor_sessions_device_idx on revendedor_sessions (device_id);
+
+-- Preço da Hora scraper: shared session + short-lived results cache.
+-- Cloudflare Workers don't keep in-memory module state across requests
+-- reliably, so this state has to live in the database instead.
+create table if not exists scrape_session (
+  id smallint primary key default 1,
+  cookie text not null,
+  csrf_token text not null,
+  fetched_at timestamptz not null default now(),
+  constraint scrape_session_singleton check (id = 1)
+);
+
+create table if not exists price_search_cache (
+  cache_key text primary key,
+  query text not null,
+  results jsonb not null,
+  fetched_at timestamptz not null default now()
+);
+create index if not exists price_search_cache_fetched_idx on price_search_cache (fetched_at desc);

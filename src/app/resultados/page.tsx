@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ProductResultCard } from "@/components/ProductResultCard";
 import { AddToCartModal } from "@/components/AddToCartModal";
+import { formatTimeAgo } from "@/lib/format";
 import { PriceResult, SortOption } from "@/lib/types";
 
 function ResultadosContent() {
@@ -30,6 +31,7 @@ function ResultadosContent() {
   const [loading, setLoading] = useState(Boolean(query));
   const [errored, setErrored] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [resultsQuery, setResultsQuery] = useState<string | null>(null);
   const isSearching = loading || resultsQuery !== query;
 
@@ -48,6 +50,7 @@ function ResultadosContent() {
     setLoading(true);
     setErrored(false);
     setUnavailable(false);
+    setCachedAt(null);
 
     const searchParams = new URLSearchParams({
       q: query,
@@ -64,6 +67,7 @@ function ResultadosContent() {
       .then((data) => {
         setResults(data.results ?? []);
         setUnavailable(data.source === "unavailable");
+        setCachedAt(data.source === "cache" ? data.cachedAt ?? null : null);
       })
       .catch((err) => {
         if (err.name !== "AbortError") setErrored(true);
@@ -121,6 +125,12 @@ function ResultadosContent() {
             <p className="animate-fade-in text-xs text-gray-400">
               {results.length} resultado(s) encontrado(s) em até {searchRadiusKm}{" "}
               km
+              {cachedAt && (
+                <span className="text-gray-300">
+                  {" "}
+                  · atualizado {formatTimeAgo(cachedAt)}
+                </span>
+              )}
             </p>
             {results.map((result, index) => (
               <div
