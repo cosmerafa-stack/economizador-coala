@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/format";
 interface AddToCartModalProps {
   result: PriceResult;
   defaultProfitPercent: number;
+  allowProfit?: boolean;
   onConfirm: (profitPercent: number, quantity: number) => void;
   onClose: () => void;
 }
@@ -14,6 +15,7 @@ interface AddToCartModalProps {
 export function AddToCartModal({
   result,
   defaultProfitPercent,
+  allowProfit = true,
   onConfirm,
   onClose,
 }: AddToCartModalProps) {
@@ -28,7 +30,7 @@ export function AddToCartModal({
       <div className="w-full max-w-[480px] rounded-t-2xl bg-white p-5 sm:rounded-2xl">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-bold text-gray-900">
-            Adicionar para revenda
+            {allowProfit ? "Adicionar para revenda" : "Adicionar ao carrinho"}
           </h2>
           <button
             onClick={onClose}
@@ -75,56 +77,69 @@ export function AddToCartModal({
           </button>
         </div>
 
-        <label className="mb-1 block text-sm font-medium text-gray-700">
-          Percentual de lucro desejado
-        </label>
-        <div className="mb-4 flex items-center gap-3">
-          <input
-            type="range"
-            min={0}
-            max={200}
-            step={1}
-            value={percent}
-            onChange={(e) => setPercent(Number(e.target.value))}
-            className="flex-1 accent-ml-blue"
-          />
-          <input
-            type="number"
-            value={percent}
-            onChange={(e) => setPercent(Number(e.target.value))}
-            className="w-16 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm"
-          />
-          <span className="text-sm text-gray-500">%</span>
-        </div>
-
-        <div className="mb-5 space-y-2 rounded-lg border border-ml-green/30 bg-ml-green/5 p-3 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600">Valor de revenda (unidade)</span>
-            <span className="font-bold text-ml-green">
-              {formatCurrency(resalePrice)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600">Lucro bruto (unidade)</span>
-            <span className="font-semibold text-gray-900">
-              {formatCurrency(grossProfit)}
-            </span>
-          </div>
-          {quantity > 1 && (
-            <div className="flex items-center justify-between border-t border-ml-green/20 pt-2">
-              <span className="text-gray-600">Lucro total ({quantity}x)</span>
-              <span className="font-bold text-ml-green">
-                {formatCurrency(grossProfit * quantity)}
-              </span>
+        {allowProfit && (
+          <>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Percentual de lucro desejado
+            </label>
+            <div className="mb-4 flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={200}
+                step={1}
+                value={percent}
+                onChange={(e) => setPercent(Number(e.target.value))}
+                className="flex-1 accent-ml-blue"
+              />
+              <input
+                type="number"
+                value={percent}
+                onChange={(e) => setPercent(Number(e.target.value))}
+                className="w-16 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm"
+              />
+              <span className="text-sm text-gray-500">%</span>
             </div>
-          )}
-        </div>
+
+            <div className="mb-5 space-y-2 rounded-lg border border-ml-green/30 bg-ml-green/5 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Valor de revenda (unidade)</span>
+                <span className="font-bold text-ml-green">
+                  {formatCurrency(resalePrice)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Lucro bruto (unidade)</span>
+                <span className="font-semibold text-gray-900">
+                  {formatCurrency(grossProfit)}
+                </span>
+              </div>
+              {quantity > 1 && (
+                <div className="flex items-center justify-between border-t border-ml-green/20 pt-2">
+                  <span className="text-gray-600">Lucro total ({quantity}x)</span>
+                  <span className="font-bold text-ml-green">
+                    {formatCurrency(grossProfit * quantity)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {!allowProfit && quantity > 1 && (
+          <div className="mb-5 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm">
+            <span className="text-gray-500">Subtotal ({quantity}x)</span>
+            <span className="font-bold text-gray-900">
+              {formatCurrency(result.price * quantity)}
+            </span>
+          </div>
+        )}
 
         <button
-          onClick={() => onConfirm(percent, quantity)}
+          onClick={() => onConfirm(allowProfit ? percent : 0, quantity)}
           className="w-full rounded-lg bg-ml-blue py-3 text-sm font-bold text-white active:bg-ml-blue-dark"
         >
-          Salvar no carrinho
+          {allowProfit ? "Salvar no carrinho" : "Adicionar ao carrinho"}
         </button>
       </div>
     </div>

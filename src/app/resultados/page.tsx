@@ -130,7 +130,7 @@ function ResultadosContent() {
               >
                 <ProductResultCard
                   result={result}
-                  showAddToCart={role === "revendedor"}
+                  showAddToCart={role === "revendedor" || role === "consumidor"}
                   onAddToCart={() => setCartTarget(result)}
                 />
               </div>
@@ -143,6 +143,7 @@ function ResultadosContent() {
         <AddToCartModal
           result={cartTarget}
           defaultProfitPercent={defaultProfitPercent}
+          allowProfit={role === "revendedor"}
           onClose={() => setCartTarget(null)}
           onConfirm={(percent, quantity) => {
             const resalePrice = cartTarget.price * (1 + percent / 100);

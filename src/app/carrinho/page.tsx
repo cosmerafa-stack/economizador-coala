@@ -26,10 +26,12 @@ export default function CarrinhoPage() {
     if (!hasHydrated) return;
     if (!role) {
       router.replace("/");
-    } else if (role !== "revendedor") {
-      router.replace("/buscar");
+    } else if (role === "gestor") {
+      router.replace("/gestor");
     }
   }, [hasHydrated, role, router]);
+
+  const isRevendedor = role === "revendedor";
 
   const totals = useMemo(() => {
     return cart.reduce(
@@ -78,7 +80,7 @@ export default function CarrinhoPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <AppHeader title="Carrinho de revenda" />
+      <AppHeader title={isRevendedor ? "Carrinho de revenda" : "Meu carrinho"} />
 
       <div className="px-4 pt-3">
         <button
@@ -117,7 +119,9 @@ export default function CarrinhoPage() {
           <div className="mt-10 text-center text-sm text-gray-400">
             Seu carrinho está vazio.
             <br />
-            Busque um produto e adicione para revenda.
+            {isRevendedor
+              ? "Busque um produto e adicione para revenda."
+              : "Busque um produto e adicione ao carrinho."}
           </div>
         ) : (
           cart.map((item, index) => (
@@ -180,31 +184,48 @@ export default function CarrinhoPage() {
                 </div>
               </div>
 
-              <div className="mt-2 grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-2 text-center text-xs">
-                <div>
-                  <p className="text-gray-400">Custo (un.)</p>
-                  <p className="font-semibold text-gray-800">
-                    {formatCurrency(item.priceResult.price)}
-                  </p>
+              {isRevendedor ? (
+                <div className="mt-2 grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-2 text-center text-xs">
+                  <div>
+                    <p className="text-gray-400">Custo (un.)</p>
+                    <p className="font-semibold text-gray-800">
+                      {formatCurrency(item.priceResult.price)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Revenda ({item.profitPercent}%)</p>
+                    <p className="font-semibold text-ml-blue">
+                      {formatCurrency(item.resalePrice)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Lucro total</p>
+                    <p className="font-semibold text-ml-green">
+                      {formatCurrency(item.grossProfit * item.quantity)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-400">Revenda ({item.profitPercent}%)</p>
-                  <p className="font-semibold text-ml-blue">
-                    {formatCurrency(item.resalePrice)}
-                  </p>
+              ) : (
+                <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-2 text-center text-xs">
+                  <div>
+                    <p className="text-gray-400">Preço (un.)</p>
+                    <p className="font-semibold text-gray-800">
+                      {formatCurrency(item.priceResult.price)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Subtotal</p>
+                    <p className="font-semibold text-ml-blue">
+                      {formatCurrency(item.priceResult.price * item.quantity)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-400">Lucro total</p>
-                  <p className="font-semibold text-ml-green">
-                    {formatCurrency(item.grossProfit * item.quantity)}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           ))
         )}
 
-        {cart.length > 0 && (
+        {cart.length > 0 && isRevendedor && (
           <div
             className="animate-fade-slide-up mt-1 grid grid-cols-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
             style={{ animationDelay: "0.1s" }}
@@ -234,6 +255,32 @@ export default function CarrinhoPage() {
               </span>
               <span className="text-[11px] leading-tight text-gray-400">
                 Lucro bruto
+              </span>
+            </div>
+          </div>
+        )}
+
+        {cart.length > 0 && !isRevendedor && (
+          <div
+            className="animate-fade-slide-up mt-1 grid grid-cols-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            style={{ animationDelay: "0.1s" }}
+          >
+            <div className="flex flex-col items-center gap-1 text-center">
+              <span className="text-lg leading-none">📦</span>
+              <span className="text-base font-extrabold text-gray-900">
+                {totals.count}
+              </span>
+              <span className="text-[11px] leading-tight text-gray-400">
+                Produtos
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-1 border-l border-gray-100 text-center">
+              <span className="text-lg leading-none">💰</span>
+              <span className="text-base font-extrabold text-gray-900">
+                {formatCurrency(totals.gross)}
+              </span>
+              <span className="text-[11px] leading-tight text-gray-400">
+                Valor total
               </span>
             </div>
           </div>

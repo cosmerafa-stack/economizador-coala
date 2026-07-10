@@ -41,26 +41,30 @@ export function BottomNav() {
           Buscar
         </button>
 
+        {(role === "revendedor" || role === "consumidor") && (
+          <Link href="/carrinho" className={itemClass("/carrinho")}>
+            <span className={iconClass("/carrinho")}>{icons.carrinho}</span>
+            Carrinho
+            {cartCount > 0 && (
+              <span className="absolute right-3 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ml-green px-1 text-[10px] font-bold text-white">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        )}
+
         {role === "revendedor" && (
-          <>
-            <Link href="/carrinho" className={itemClass("/carrinho")}>
-              <span className={iconClass("/carrinho")}>{icons.carrinho}</span>
-              Carrinho
-              {cartCount > 0 && (
-                <span className="absolute right-3 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ml-green px-1 text-[10px] font-bold text-white">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
-            <Link href="/notas" className={itemClass("/notas")}>
-              <span className={iconClass("/notas")}>{icons.notas}</span>
-              Notas
-            </Link>
-            <Link href="/configuracoes" className={itemClass("/configuracoes")}>
-              <span className={iconClass("/configuracoes")}>{icons.config}</span>
-              Ajustes
-            </Link>
-          </>
+          <Link href="/notas" className={itemClass("/notas")}>
+            <span className={iconClass("/notas")}>{icons.notas}</span>
+            Notas
+          </Link>
+        )}
+
+        {(role === "revendedor" || role === "consumidor") && (
+          <Link href="/configuracoes" className={itemClass("/configuracoes")}>
+            <span className={iconClass("/configuracoes")}>{icons.config}</span>
+            Ajustes
+          </Link>
         )}
       </nav>
     </div>

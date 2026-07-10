@@ -24,7 +24,7 @@ export default function ConfiguracoesPage() {
   useEffect(() => {
     if (!hasHydrated) return;
     if (!role) router.replace("/");
-    else if (role !== "revendedor") router.replace("/buscar");
+    else if (role === "gestor") router.replace("/gestor");
   }, [hasHydrated, role, router]);
 
   return (
@@ -64,36 +64,38 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
 
-        <div
-          className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
-          style={{ animationDelay: "0.15s" }}
-        >
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            Percentual de lucro padrão para revenda
-          </label>
-          <p className="mb-3 text-xs text-gray-400">
-            Usado como sugestão ao adicionar produtos ao carrinho. Você pode
-            sempre alterar por item.
-          </p>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={0}
-              max={200}
-              step={1}
-              value={percent}
-              onChange={(e) => setPercent(Number(e.target.value))}
-              className="flex-1 accent-ml-blue"
-            />
-            <input
-              type="number"
-              value={percent}
-              onChange={(e) => setPercent(Number(e.target.value))}
-              className="w-16 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm"
-            />
-            <span className="text-sm text-gray-500">%</span>
+        {role === "revendedor" && (
+          <div
+            className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            style={{ animationDelay: "0.15s" }}
+          >
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Percentual de lucro padrão para revenda
+            </label>
+            <p className="mb-3 text-xs text-gray-400">
+              Usado como sugestão ao adicionar produtos ao carrinho. Você pode
+              sempre alterar por item.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={200}
+                step={1}
+                value={percent}
+                onChange={(e) => setPercent(Number(e.target.value))}
+                className="flex-1 accent-ml-blue"
+              />
+              <input
+                type="number"
+                value={percent}
+                onChange={(e) => setPercent(Number(e.target.value))}
+                className="w-16 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm"
+              />
+              <span className="text-sm text-gray-500">%</span>
+            </div>
           </div>
-        </div>
+        )}
 
         <button
           onClick={() => {
