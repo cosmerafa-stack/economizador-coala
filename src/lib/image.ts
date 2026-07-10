@@ -33,3 +33,17 @@ export function fileToCompressedDataUrl(file: File): Promise<string> {
     img.src = objectUrl;
   });
 }
+
+// Non-image files (PDFs) can't be resized on a canvas — read as-is.
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+export function isPdfDataUrl(dataUrl: string): boolean {
+  return dataUrl.startsWith("data:application/pdf");
+}

@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { formatCurrency } from "@/lib/format";
+import { isPdfDataUrl } from "@/lib/image";
 import { Nota } from "@/lib/types";
 
 function matchesFilters(
@@ -174,15 +175,27 @@ export default function ConsultarNotaPage() {
 
                     {nota.fotos.length > 0 && (
                       <div className="mb-3 flex gap-2 overflow-x-auto">
-                        {nota.fotos.map((foto, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            key={i}
-                            src={foto}
-                            alt={`Página ${i + 1}`}
-                            className="h-20 w-16 shrink-0 rounded-lg border border-gray-100 object-cover"
-                          />
-                        ))}
+                        {nota.fotos.map((foto, i) =>
+                          isPdfDataUrl(foto) ? (
+                            <div
+                              key={i}
+                              className="flex h-20 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-gray-100 bg-gray-50"
+                            >
+                              <span className="text-lg">📄</span>
+                              <span className="text-[9px] font-semibold text-gray-500">
+                                PDF
+                              </span>
+                            </div>
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={i}
+                              src={foto}
+                              alt={`Página ${i + 1}`}
+                              className="h-20 w-16 shrink-0 rounded-lg border border-gray-100 object-cover"
+                            />
+                          )
+                        )}
                       </div>
                     )}
 

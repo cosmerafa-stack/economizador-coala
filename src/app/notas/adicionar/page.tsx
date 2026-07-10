@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { CameraCapture } from "@/components/CameraCapture";
-import { fileToCompressedDataUrl } from "@/lib/image";
+import { fileToCompressedDataUrl, fileToDataUrl, isPdfDataUrl } from "@/lib/image";
 import { ExtractedNotaFields, NotaCampoExtra, NotaProduto } from "@/lib/types";
 
 type Stage = "capture" | "analyzing" | "review";
@@ -63,10 +63,15 @@ export default function AdicionarNotaPage() {
     e.target.value = "";
     if (files.length === 0) return;
 
-    const compressed = await Promise.all(
-      files.map((file) => fileToCompressedDataUrl(file).catch(() => null))
+    const converted = await Promise.all(
+      files.map((file) =>
+        (file.type === "application/pdf"
+          ? fileToDataUrl(file)
+          : fileToCompressedDataUrl(file)
+        ).catch(() => null)
+      )
     );
-    setPhotos((p) => [...p, ...compressed.filter((d): d is string => !!d)]);
+    setPhotos((p) => [...p, ...converted.filter((d): d is string => !!d)]);
   }
 
   function updateProduto(index: number, patch: Partial<NotaProduto>) {
@@ -142,12 +147,21 @@ export default function AdicionarNotaPage() {
             <div className="grid grid-cols-3 gap-2">
               {photos.map((photo, index) => (
                 <div key={index} className="relative aspect-[3/4]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photo}
-                    alt={`Página ${index + 1}`}
-                    className="h-full w-full rounded-xl border border-gray-100 object-cover shadow-sm"
-                  />
+                  {isPdfDataUrl(photo) ? (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-gray-100 bg-gray-50 shadow-sm">
+                      <span className="text-2xl">📄</span>
+                      <span className="text-[10px] font-semibold text-gray-500">
+                        PDF
+                      </span>
+                    </div>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photo}
+                      alt={`Página ${index + 1}`}
+                      className="h-full w-full rounded-xl border border-gray-100 object-cover shadow-sm"
+                    />
+                  )}
                   <span className="absolute left-1 top-1 rounded-full bg-black/60 px-1.5 text-[10px] font-bold text-white">
                     {index + 1}
                   </span>
@@ -175,7 +189,7 @@ export default function AdicionarNotaPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf"
             multiple
             className="hidden"
             onChange={handleFilesSelected}
@@ -184,7 +198,7 @@ export default function AdicionarNotaPage() {
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-3 text-sm font-semibold text-gray-600 shadow-sm transition-all hover:bg-gray-50 active:scale-[0.98]"
           >
-            🖼️ Abrir foto salva
+            🖼️ Abrir foto ou PDF salvo
           </button>
 
           {photos.length > 0 && (
@@ -469,12 +483,27 @@ export default function AdicionarNotaPage() {
             <span className="w-9" />
           </div>
           <div className="flex flex-1 items-center justify-center overflow-hidden px-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photos[previewIndex]}
-              alt={`Página ${previewIndex + 1}`}
-              className="max-h-full max-w-full rounded-lg object-contain"
-            />
+            {isPdfDataUrl(photos[previewIndex]) ? (
+              <div className="flex flex-col items-center gap-3 text-center text-white/80">
+                <span className="text-5xl">📄</span>
+                <p className="text-sm">Este arquivo é um PDF.</p>
+                <a
+                  href={photos[previewIndex]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Abrir em nova aba
+                </a>
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photos[previewIndex]}
+                alt={`Página ${previewIndex + 1}`}
+                className="max-h-full max-w-full rounded-lg object-contain"
+              />
+            )}
           </div>
           <div className="flex items-center justify-center gap-6 px-4 py-6">
             <button

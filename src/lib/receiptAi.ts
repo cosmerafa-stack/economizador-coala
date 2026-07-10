@@ -4,7 +4,7 @@ import { ExtractedNotaFields } from "./types";
 
 export const isReceiptAiConfigured = Boolean(process.env.GEMINI_API_KEY);
 
-const EXTRACTION_PROMPT = `Você recebe fotos de uma nota fiscal ou recibo (podem ser várias páginas do mesmo documento). Extraia as informações e responda APENAS com um JSON válido, sem texto adicional, no formato:
+const EXTRACTION_PROMPT = `Você recebe fotos ou arquivos PDF de uma nota fiscal ou recibo (podem ser várias páginas/arquivos do mesmo documento). Extraia as informações e responda APENAS com um JSON válido, sem texto adicional, no formato:
 
 {
   "emitente": "nome da empresa/pessoa que emitiu",
@@ -26,7 +26,7 @@ Em "camposExtras", crie um item para CADA outra informação relevante que você
 Se não conseguir identificar um campo, use null (ou string vazia para textos). Se não conseguir ler nenhum produto individualmente, retorne "produtos": []. Se não houver outras informações relevantes, retorne "camposExtras": [].`;
 
 function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } {
-  const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  const match = dataUrl.match(/^data:(image\/\w+|application\/pdf);base64,(.+)$/);
   if (!match) {
     throw new Error("Formato de imagem inválido");
   }
