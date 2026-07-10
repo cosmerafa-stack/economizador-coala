@@ -82,7 +82,11 @@ function ResultadosContent() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <AppHeader title={`Resultados: "${query}"`} showBack />
+      <AppHeader
+        title={`Resultados: "${query}"`}
+        showBack
+        onBack={() => router.push("/buscar")}
+      />
 
       <div className="animate-fade-in sticky top-[52px] z-10 flex items-center gap-2 border-b border-gray-100 bg-white/80 px-4 py-2.5 backdrop-blur-md">
         <label className="text-xs font-medium text-gray-500">Ordenar:</label>

@@ -6,9 +6,14 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 interface AppHeaderProps {
   title?: string;
   showBack?: boolean;
+  onBack?: () => void;
 }
 
-export function AppHeader({ title = "Economizador Coala", showBack = false }: AppHeaderProps) {
+export function AppHeader({
+  title = "Economizador Coala",
+  showBack = false,
+  onBack,
+}: AppHeaderProps) {
   const router = useRouter();
   const isBrand = title === "Economizador Coala";
 
@@ -17,7 +22,7 @@ export function AppHeader({ title = "Economizador Coala", showBack = false }: Ap
       <div className="flex items-center gap-2.5">
         {showBack && (
           <button
-            onClick={() => router.back()}
+            onClick={onBack ?? (() => router.back())}
             aria-label="Voltar"
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xl leading-none text-gray-500 transition-colors hover:bg-gray-100 active:scale-90"
           >
