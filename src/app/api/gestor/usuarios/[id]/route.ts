@@ -15,7 +15,7 @@ export async function PATCH(
   const body = await request.json();
 
   if (body?.action === "approve") {
-    const ok = approveAccount(id);
+    const ok = await approveAccount(id);
     return NextResponse.json({ ok });
   }
 
@@ -27,7 +27,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    const ok = setMaxDevices(id, value);
+    const ok = await setMaxDevices(id, value);
     return NextResponse.json({ ok });
   }
 
@@ -42,6 +42,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const ok = removeAccount(id);
+  const ok = await removeAccount(id);
   return NextResponse.json({ ok });
 }

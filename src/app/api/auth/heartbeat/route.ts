@@ -9,6 +9,6 @@ export async function POST(request: NextRequest) {
   if (!token) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
-  const ok = heartbeat(token);
+  const ok = await heartbeat(token);
   return NextResponse.json({ ok });
 }

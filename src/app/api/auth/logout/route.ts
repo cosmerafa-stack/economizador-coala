@@ -6,6 +6,6 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { token } = body ?? {};
-  if (token) logout(token);
+  if (token) await logout(token);
   return NextResponse.json({ ok: true });
 }
