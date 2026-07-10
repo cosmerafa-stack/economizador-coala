@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { CameraCapture } from "@/components/CameraCapture";
+import { fileToCompressedDataUrl } from "@/lib/image";
 import { ExtractedNotaFields, NotaCampoExtra, NotaProduto } from "@/lib/types";
 
 type Stage = "capture" | "analyzing" | "review";
@@ -26,6 +27,7 @@ export default function AdicionarNotaPage() {
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [stage, setStage] = useState<Stage>("capture");
   const [aiMessage, setAiMessage] = useState<string | null>(null);
@@ -54,6 +56,17 @@ export default function AdicionarNotaPage() {
     } finally {
       setStage("review");
     }
+  }
+
+  async function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+
+    const compressed = await Promise.all(
+      files.map((file) => fileToCompressedDataUrl(file).catch(() => null))
+    );
+    setPhotos((p) => [...p, ...compressed.filter((d): d is string => !!d)]);
   }
 
   function updateProduto(index: number, patch: Partial<NotaProduto>) {
@@ -157,6 +170,21 @@ export default function AdicionarNotaPage() {
             className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ml-blue/40 bg-ml-blue/5 py-4 text-sm font-semibold text-ml-blue transition-all hover:border-ml-blue/60 hover:bg-ml-blue/10 active:scale-[0.98]"
           >
             📷 {photos.length === 0 ? "Tirar foto" : "Tirar outra página"}
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFilesSelected}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-3 text-sm font-semibold text-gray-600 shadow-sm transition-all hover:bg-gray-50 active:scale-[0.98]"
+          >
+            🖼️ Abrir foto salva
           </button>
 
           {photos.length > 0 && (
