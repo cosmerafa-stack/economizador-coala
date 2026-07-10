@@ -124,6 +124,9 @@ body {
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
+  transform: translateZ(0);
+  will-change: filter;
+  animation: hue-cycle 48s linear infinite;
 }
 
 .app-background-gradient {
@@ -459,6 +462,15 @@ body {
   }
   100% {
     background-position: 0% 50%;
+  }
+}
+
+@keyframes hue-cycle {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
   }
 }
 

@@ -151,7 +151,11 @@ export default function CarrinhoPage() {
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-400">
-                {item.priceResult.store.name} · {formatTimeAgo(item.addedAt)}
+                {item.priceResult.store.name} ·{" "}
+                {formatTimeAgo(item.priceResult.emittedAt)}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
+                {item.priceResult.store.address}
               </p>
               <a
                 href={googleMapsUrl(
@@ -170,9 +174,13 @@ export default function CarrinhoPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() =>
-                      updateCartItemQuantity(item.id, item.quantity - 1)
+                      item.quantity <= 1
+                        ? removeFromCart(item.id)
+                        : updateCartItemQuantity(item.id, item.quantity - 1)
                     }
-                    aria-label="Diminuir quantidade"
+                    aria-label={
+                      item.quantity <= 1 ? "Remover" : "Diminuir quantidade"
+                    }
                     className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 text-sm font-bold text-gray-600 active:bg-gray-100"
                   >
                     −
