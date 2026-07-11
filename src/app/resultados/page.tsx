@@ -106,7 +106,10 @@ function ResultadosContent() {
       <main className="flex flex-1 flex-col gap-3 px-4 py-4">
         {isSearching ? (
           <div className="animate-fade-in mt-10 flex flex-col items-center gap-4 text-center">
-            <span className="animate-spin-slow inline-block h-9 w-9 rounded-full border-[3px] border-ml-blue/25 border-t-ml-blue" />
+            <span className="rocket-loading" aria-hidden>
+              <span className="flame-trail" aria-hidden />
+              🚀
+            </span>
             <p className="text-sm font-medium text-gray-500">
               Buscando preços em até {searchRadiusKm} km...
             </p>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
+import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
 import { formatCurrency, formatTimeAgo } from "@/lib/format";
 import { PriceHistoryPoint } from "@/lib/types";
 
@@ -16,6 +17,7 @@ export default function HistoricoPage() {
   const [pontos, setPontos] = useState<PriceHistoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -23,12 +25,12 @@ export default function HistoricoPage() {
     else if (role !== "revendedor") router.replace("/buscar");
   }, [hasHydrated, role, router]);
 
-  async function handleBuscar() {
-    if (!query.trim()) return;
+  async function handleBuscar(value: string = query) {
+    if (!value.trim()) return;
     setLoading(true);
     setSearched(true);
     try {
-      const res = await fetch(`/api/beta/historico?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/beta/historico?q=${encodeURIComponent(value)}`);
       const data = await res.json();
       setPontos(data.pontos ?? []);
     } finally {
@@ -53,11 +55,18 @@ export default function HistoricoPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleBuscar()}
-            placeholder="Nome do produto"
+            placeholder="Nome do produto ou código de barras"
             className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-ml-blue focus:ring-2 focus:ring-ml-blue/20"
           />
           <button
-            onClick={handleBuscar}
+            onClick={() => setScannerOpen(true)}
+            aria-label="Bipar código de barras"
+            className="flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-3.5 text-base shadow-sm active:scale-95"
+          >
+            📷
+          </button>
+          <button
+            onClick={() => handleBuscar()}
             className="rounded-2xl bg-ml-blue px-5 py-3 text-sm font-semibold text-white shadow-sm active:scale-95"
           >
             Ver
@@ -122,6 +131,17 @@ export default function HistoricoPage() {
           </>
         )}
       </main>
+
+      {scannerOpen && (
+        <BarcodeScannerModal
+          onClose={() => setScannerOpen(false)}
+          onDetected={(code) => {
+            setScannerOpen(false);
+            setQuery(code);
+            handleBuscar(code);
+          }}
+        />
+      )}
     </div>
   );
 }

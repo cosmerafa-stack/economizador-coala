@@ -338,54 +338,83 @@ body {
   transform: scale(0.9);
 }
 
+/*
+  Rocket exhaust glow. Emoji glyphs render at very different sizes/positions
+  across platforms (the actual glyph is much smaller than its em-box and
+  sits centered inside it), so a precisely-shaped flame anchored to the
+  container's corner ends up disconnected from the rocket's tail on most
+  fonts. A soft, blurred, roughly-centered glow reads as "engine glow"
+  regardless of exact glyph placement — much more robust than chasing
+  pixel-perfect alignment per emoji font.
+*/
 .flame-trail {
   position: absolute;
-  bottom: 14px;
-  left: 13px;
-  width: 7px;
-  height: 20px;
-  transform: rotate(-40deg);
-  transform-origin: top center;
-  border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
-  background: linear-gradient(
-    180deg,
+  bottom: 20%;
+  left: 18%;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
     #fff6d5 0%,
-    #ffd23f 30%,
-    #ff8c1a 60%,
+    #ffd23f 40%,
+    #ff8c1a 70%,
     rgba(255, 90, 0, 0) 100%
   );
-  animation: flame-pulse 0.35s ease-in-out infinite alternate;
+  filter: blur(3px);
+  animation: flame-pulse 0.4s ease-in-out infinite alternate;
   pointer-events: none;
 }
 
 .flame-trail-sm {
   position: absolute;
-  bottom: 6px;
-  left: 6px;
-  width: 3px;
-  height: 9px;
-  transform: rotate(-40deg);
-  transform-origin: top center;
-  border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
-  background: linear-gradient(
-    180deg,
+  bottom: 18%;
+  left: 16%;
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
     #fff6d5 0%,
-    #ffd23f 30%,
-    #ff8c1a 60%,
+    #ffd23f 40%,
+    #ff8c1a 70%,
     rgba(255, 90, 0, 0) 100%
   );
-  animation: flame-pulse 0.35s ease-in-out infinite alternate;
+  filter: blur(1.5px);
+  animation: flame-pulse 0.4s ease-in-out infinite alternate;
   pointer-events: none;
 }
 
 @keyframes flame-pulse {
   0% {
-    transform: rotate(-40deg) scaleY(0.75) scaleX(0.85);
-    opacity: 0.85;
+    transform: scale(0.8);
+    opacity: 0.75;
   }
   100% {
-    transform: rotate(-40deg) scaleY(1.2) scaleX(1.05);
+    transform: scale(1.15);
     opacity: 1;
+  }
+}
+
+.rocket-loading {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  font-size: 2.25rem;
+  line-height: 1;
+  animation: rocket-float 1.6s ease-in-out infinite;
+}
+
+@keyframes rocket-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
   }
 }
 
@@ -528,6 +557,7 @@ body {
   .animate-spin-slow,
   .flame-trail,
   .flame-trail-sm,
+  .rocket-loading,
   .app-background,
   .app-background-gradient,
   .app-blob {
