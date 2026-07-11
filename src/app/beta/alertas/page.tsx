@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
+import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
 import { formatCurrency, formatTimeAgo } from "@/lib/format";
 import { PriceAlert } from "@/lib/types";
 
@@ -18,6 +19,7 @@ export default function AlertasPage() {
   const [query, setQuery] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -74,14 +76,23 @@ export default function AlertasPage() {
       <main className="flex flex-1 flex-col gap-4 px-4 py-5">
         <div className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <label className="mb-1 block text-sm font-medium text-gray-700">
-            Produto
+            Produto ou código de barras
           </label>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ex: Nescau 400g"
-            className="mb-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ml-blue/20"
-          />
+          <div className="mb-3 flex gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ex: Nescau 400g"
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ml-blue/20"
+            />
+            <button
+              onClick={() => setScannerOpen(true)}
+              aria-label="Bipar código de barras"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-base"
+            >
+              📷
+            </button>
+          </div>
           <label className="mb-1 block text-sm font-medium text-gray-700">
             Avisar quando o preço chegar a
           </label>
@@ -161,6 +172,16 @@ export default function AlertasPage() {
           )}
         </div>
       </main>
+
+      {scannerOpen && (
+        <BarcodeScannerModal
+          onClose={() => setScannerOpen(false)}
+          onDetected={(code) => {
+            setScannerOpen(false);
+            setQuery(code);
+          }}
+        />
+      )}
     </div>
   );
 }
