@@ -239,6 +239,23 @@ async function writeCache(query: string, results: PriceResult[]): Promise<void> 
   );
 }
 
+// Appends a row per result so /beta/historico can show price trends over
+// time. Best-effort — a failure here must never break a search response.
+async function writeHistory(query: string, results: PriceResult[]): Promise<void> {
+  if (results.length === 0) return;
+  const values: string[] = [];
+  const params: unknown[] = [];
+  results.forEach((item, i) => {
+    const base = i * 5;
+    values.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`);
+    params.push(query, item.productName, item.store.id, item.store.name, item.price);
+  });
+  await sql.query(
+    `insert into price_history (query, product_name, store_id, store_name, price) values ${values.join(",")}`,
+    params
+  );
+}
+
 export type SearchSource = "live" | "cache" | "unavailable";
 
 export interface SearchResponse {
@@ -256,6 +273,7 @@ export async function searchPrices(
   try {
     const results = await searchLivePrices(params);
     writeCache(params.query, results).catch(() => {});
+    writeHistory(params.query, results).catch(() => {});
     return { results, source: "live" };
   } catch (err) {
     const cached = await readCache(params.query).catch(() => null);

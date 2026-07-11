@@ -9,6 +9,7 @@ const icons = {
   buscar: "🔍",
   carrinho: "🛒",
   notas: "🧾",
+  beta: "🧪",
   config: "⚙️",
 };
 
@@ -57,6 +58,13 @@ export function BottomNav() {
           <Link href="/notas" className={itemClass("/notas")}>
             <span className={iconClass("/notas")}>{icons.notas}</span>
             Notas
+          </Link>
+        )}
+
+        {role === "revendedor" && (
+          <Link href="/beta" className={itemClass("/beta")}>
+            <span className={iconClass("/beta")}>{icons.beta}</span>
+            Beta
           </Link>
         )}
 

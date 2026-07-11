@@ -43,3 +43,47 @@ create table if not exists price_search_cache (
   fetched_at timestamptz not null default now()
 );
 create index if not exists price_search_cache_fetched_idx on price_search_cache (fetched_at desc);
+
+-- ===================== Área Beta (experimental) =====================
+
+-- Appends one row per product/store every time a live search succeeds,
+-- so we can show price trends over time (unlike price_search_cache,
+-- which only keeps the latest snapshot per query).
+create table if not exists price_history (
+  id uuid primary key default gen_random_uuid(),
+  query text not null,
+  product_name text not null,
+  store_id text not null,
+  store_name text not null,
+  price numeric(10, 2) not null,
+  recorded_at timestamptz not null default now()
+);
+create index if not exists price_history_query_idx on price_history (query, recorded_at desc);
+
+-- Price-target alerts. Scoped by deviceId (not account) since consumidor
+-- doesn't have login — mirrors the deviceId already used for revendedor
+-- session/device limiting.
+create table if not exists price_alerts (
+  id uuid primary key default gen_random_uuid(),
+  device_id text not null,
+  query text not null,
+  target_price numeric(10, 2) not null,
+  active boolean not null default true,
+  triggered_at timestamptz,
+  triggered_store_name text,
+  triggered_price numeric(10, 2),
+  created_at timestamptz not null default now()
+);
+create index if not exists price_alerts_device_idx on price_alerts (device_id);
+
+-- Manually reported prices ("preço colaborativo"). Not merged into the
+-- official search results yet — shown as its own feed inside the Beta area.
+create table if not exists community_prices (
+  id uuid primary key default gen_random_uuid(),
+  product_name text not null,
+  price numeric(10, 2) not null,
+  store_name text not null,
+  device_id text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists community_prices_created_idx on community_prices (created_at desc);

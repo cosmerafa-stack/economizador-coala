@@ -94,3 +94,58 @@ export interface RevendedorAccountPublic {
   activeDevices: number;
   createdAt: string;
 }
+
+// ===================== Área Beta (experimental) =====================
+
+export interface PriceAlert {
+  id: string;
+  query: string;
+  targetPrice: number;
+  active: boolean;
+  triggeredAt: string | null;
+  triggeredStoreName: string | null;
+  triggeredPrice: number | null;
+  createdAt: string;
+}
+
+export interface PriceHistoryPoint {
+  storeId: string;
+  storeName: string;
+  price: number;
+  recordedAt: string;
+}
+
+export interface CommunityPrice {
+  id: string;
+  productName: string;
+  price: number;
+  storeName: string;
+  createdAt: string;
+}
+
+export interface OpportunityRadarItem {
+  query: string;
+  cheapestPrice: number;
+  cheapestStoreName: string;
+  typicalPrice: number;
+  spreadPercent: number;
+  recordedAt: string;
+}
+
+export interface ListaOtimizadaItem {
+  query: string;
+  bestOverallPrice: number | null;
+  bestOverallStore: string | null;
+  priceAtBestStore: number | null;
+  availableAtBestStore: boolean;
+}
+
+export interface ListaOtimizadaResult {
+  bestStoreName: string | null;
+  bestStoreTotal: number;
+  bestStoreCoveredCount: number;
+  multiStoreTotal: number;
+  storesInvolved: number;
+  savings: number;
+  itens: ListaOtimizadaItem[];
+}
