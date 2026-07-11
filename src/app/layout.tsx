@@ -24,6 +24,9 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: "Economizador Coala",
   description: "Compare preços de NFCe na Bahia e revenda com lucro",
+  icons: {
+    icon: "/coala-icon.svg",
+  },
 };
 
 export const viewport = {
