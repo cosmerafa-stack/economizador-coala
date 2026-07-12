@@ -12,6 +12,8 @@ interface Row {
   price: string;
   store_name: string;
   created_at: string;
+  confirmations: string;
+  confirmed_by_me: boolean;
 }
 
 function toPublic(row: Row): CommunityPrice {
@@ -21,13 +23,27 @@ function toPublic(row: Row): CommunityPrice {
     price: Number(row.price),
     storeName: row.store_name,
     createdAt: row.created_at,
+    confirmations: Number(row.confirmations),
+    confirmedByMe: row.confirmed_by_me,
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const deviceId = request.nextUrl.searchParams.get("deviceId") ?? "";
+
   const rows = (await sql.query(
-    "select id, product_name, price, store_name, created_at from community_prices order by created_at desc limit 50"
+    `select
+       cp.id, cp.product_name, cp.price, cp.store_name, cp.created_at,
+       count(cc.id) as confirmations,
+       bool_or(cc.device_id = $1) as confirmed_by_me
+     from community_prices cp
+     left join community_price_confirmations cc on cc.community_price_id = cp.id
+     group by cp.id
+     order by cp.created_at desc
+     limit 50`,
+    [deviceId]
   )) as Row[];
+
   return NextResponse.json({ precos: rows.map(toPublic) });
 }
 

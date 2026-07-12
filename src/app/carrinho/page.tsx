@@ -9,6 +9,7 @@ import { formatCurrency, formatTimeAgo } from "@/lib/format";
 import { googleMapsUrl } from "@/lib/maps";
 import { nearestNeighborOrder, googleMapsRouteUrl } from "@/lib/route";
 import { useGoToSearch } from "@/lib/useGoToSearch";
+import { StoreContactButton } from "@/components/StoreContactButton";
 import { CartItem, Store } from "@/lib/types";
 
 const UNDO_TIMEOUT_MS = 6000;
@@ -207,6 +208,13 @@ export default function CarrinhoPage() {
               >
                 📍 Abrir Mapa
               </a>
+              <div>
+                <StoreContactButton
+                  store={item.priceResult.store}
+                  productName={item.priceResult.productName}
+                  price={item.priceResult.price}
+                />
+              </div>
 
               <div className="mt-3 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
                 <span className="text-xs text-gray-500">Quantidade</span>

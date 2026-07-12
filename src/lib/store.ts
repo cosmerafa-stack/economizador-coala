@@ -23,10 +23,10 @@ interface AppState {
   hasHydrated: boolean;
   lastSearchQuery: string | null;
   recentSearches: string[];
-  gestorPassword: string;
+  gestorToken: string | null;
   deviceId: string | null;
   revendedorAuth: RevendedorAuth | null;
-  setGestorPassword: (password: string) => void;
+  setGestorToken: (token: string | null) => void;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setRole: (role: UserRole) => void;
@@ -42,6 +42,11 @@ interface AppState {
   clearCart: () => void;
   addNota: (nota: Nota) => void;
   removeNota: (id: string) => void;
+  updateNotaProduto: (
+    notaId: string,
+    index: number,
+    changes: Partial<Pick<Nota["produtos"][number], "descricao" | "valorUnitario" | "valorTotal">>
+  ) => void;
   resetOnboarding: () => void;
   setHasHydrated: (value: boolean) => void;
   ensureDeviceId: () => string;
@@ -61,10 +66,10 @@ export const useAppStore = create<AppState>()(
       hasHydrated: false,
       lastSearchQuery: null,
       recentSearches: [],
-      gestorPassword: "ab123456",
+      gestorToken: null,
       deviceId: null,
       revendedorAuth: null,
-      setGestorPassword: (password) => set({ gestorPassword: password }),
+      setGestorToken: (token) => set({ gestorToken: token }),
       setRole: (role) => set({ role }),
       setLocation: (location) => set({ location }),
       setDefaultProfitPercent: (percent) =>
@@ -97,7 +102,28 @@ export const useAppStore = create<AppState>()(
       addNota: (nota) => set((state) => ({ notas: [nota, ...state.notas] })),
       removeNota: (id) =>
         set((state) => ({ notas: state.notas.filter((n) => n.id !== id) })),
-      resetOnboarding: () => set({ role: null }),
+      updateNotaProduto: (notaId, index, changes) =>
+        set((state) => ({
+          notas: state.notas.map((n) =>
+            n.id !== notaId
+              ? n
+              : {
+                  ...n,
+                  produtos: n.produtos.map((p, i) =>
+                    i === index ? { ...p, ...changes } : p
+                  ),
+                }
+          ),
+        })),
+      resetOnboarding: () =>
+        set({
+          role: null,
+          cart: [],
+          notas: [],
+          recentSearches: [],
+          lastSearchQuery: null,
+          gestorToken: null,
+        }),
       setHasHydrated: (value) => set({ hasHydrated: value }),
       ensureDeviceId: () => {
         const existing = get().deviceId;

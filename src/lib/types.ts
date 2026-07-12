@@ -104,7 +104,12 @@ export interface PriceAlert {
   active: boolean;
   triggeredAt: string | null;
   triggeredStoreName: string | null;
+  triggeredStoreAddress: string | null;
+  triggeredStorePhone: string | null;
+  triggeredStoreLat: number | null;
+  triggeredStoreLng: number | null;
   triggeredPrice: number | null;
+  triggeredEmittedAt: string | null;
   createdAt: string;
 }
 
@@ -121,6 +126,8 @@ export interface CommunityPrice {
   price: number;
   storeName: string;
   createdAt: string;
+  confirmations: number;
+  confirmedByMe: boolean;
 }
 
 export interface OpportunityRadarItem {
@@ -129,6 +136,7 @@ export interface OpportunityRadarItem {
   cheapestStoreName: string;
   typicalPrice: number;
   spreadPercent: number;
+  sampleCount: number;
   recordedAt: string;
 }
 

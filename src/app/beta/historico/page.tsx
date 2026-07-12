@@ -18,6 +18,7 @@ export default function HistoricoPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [descartados, setDescartados] = useState(0);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -33,6 +34,7 @@ export default function HistoricoPage() {
       const res = await fetch(`/api/beta/historico?q=${encodeURIComponent(value)}`);
       const data = await res.json();
       setPontos(data.pontos ?? []);
+      setDescartados(data.descartados ?? 0);
     } finally {
       setLoading(false);
     }
@@ -100,6 +102,11 @@ export default function HistoricoPage() {
                 <p className="font-bold text-red-500">{formatCurrency(maior)}</p>
               </div>
             </div>
+            <p className="animate-fade-slide-up -mt-2 text-center text-[11px] text-gray-400">
+              baseado em {pontos.length} registro{pontos.length === 1 ? "" : "s"}
+              {descartados > 0 &&
+                ` · ${descartados} descartado${descartados === 1 ? "" : "s"} por serem muito fora do padrão`}
+            </p>
 
             <div className="animate-fade-slide-up flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               {[...pontos].reverse().map((ponto, index) => {

@@ -29,12 +29,29 @@ export default function ColaborativoPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/beta/colaborativo");
+      const deviceId = ensureDeviceId();
+      const res = await fetch(`/api/beta/colaborativo?deviceId=${deviceId}`);
       const data = await res.json();
       setPrecos(data.precos ?? []);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleConfirmar(id: string) {
+    const deviceId = ensureDeviceId();
+    setPrecos((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, confirmations: p.confirmations + 1, confirmedByMe: true }
+          : p
+      )
+    );
+    await fetch(`/api/beta/colaborativo/${id}/confirmar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId }),
+    });
   }
 
   useEffect(() => {
@@ -122,19 +139,40 @@ export default function ColaborativoPage() {
             precos.map((p) => (
               <div
                 key={p.id}
-                className="animate-fade-slide-up flex items-center justify-between rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm"
+                className="animate-fade-slide-up rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm"
               >
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">
-                    {p.productName}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {p.storeName} · {formatTimeAgo(p.createdAt)}
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {p.productName}
+                      </p>
+                      {p.confirmations > 0 && (
+                        <span
+                          className="whitespace-nowrap rounded-full bg-ml-green/10 px-1.5 py-0.5 text-[10px] font-bold text-ml-green"
+                          title={`Confirmado por ${p.confirmations} outro(s) usuário(s)`}
+                        >
+                          ✓ verificado
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      {p.storeName} · {formatTimeAgo(p.createdAt)}
+                    </p>
+                  </div>
+                  <span className="font-bold text-ml-blue">
+                    {formatCurrency(p.price)}
+                  </span>
                 </div>
-                <span className="font-bold text-ml-blue">
-                  {formatCurrency(p.price)}
-                </span>
+                <button
+                  onClick={() => handleConfirmar(p.id)}
+                  disabled={p.confirmedByMe}
+                  className="mt-1.5 text-[11px] font-semibold text-gray-400 disabled:text-ml-green"
+                >
+                  {p.confirmedByMe
+                    ? "Você confirmou este preço"
+                    : `Também vi esse preço${p.confirmations > 0 ? ` (${p.confirmations})` : ""}`}
+                </button>
               </div>
             ))
           )}

@@ -71,8 +71,28 @@ create table if not exists price_alerts (
   active boolean not null default true,
   triggered_at timestamptz,
   triggered_store_name text,
+  triggered_store_address text,
+  triggered_store_phone text,
+  triggered_store_lat double precision,
+  triggered_store_lng double precision,
   triggered_price numeric(10, 2),
+  -- When the matched nota fiscal was actually issued, as opposed to
+  -- triggered_at (when our system happened to check) — the two can be
+  -- days apart since the price source is invoice history, not live stock.
+  triggered_emitted_at timestamptz,
+  -- Last time the background sweep actually evaluated this alert (not just
+  -- when the app happened to be open) — used to throttle each alert to its
+  -- device's configured check interval.
+  last_checked_at timestamptz,
   created_at timestamptz not null default now()
+);
+
+-- Per-device preferences that only make sense server-side, since the
+-- background alert sweep runs with no per-device client context.
+create table if not exists device_settings (
+  device_id text primary key,
+  alert_check_interval_minutes integer not null default 15,
+  updated_at timestamptz not null default now()
 );
 create index if not exists price_alerts_device_idx on price_alerts (device_id);
 
@@ -87,3 +107,14 @@ create table if not exists community_prices (
   created_at timestamptz not null default now()
 );
 create index if not exists community_prices_created_idx on community_prices (created_at desc);
+
+-- Lets a second device confirm ("verify") a manually reported price, so the
+-- feed can surface a trust signal beyond "someone typed this once".
+create table if not exists community_price_confirmations (
+  id uuid primary key default gen_random_uuid(),
+  community_price_id uuid not null references community_prices (id) on delete cascade,
+  device_id text not null,
+  created_at timestamptz not null default now(),
+  unique (community_price_id, device_id)
+);
+create index if not exists community_price_confirmations_price_idx on community_price_confirmations (community_price_id);

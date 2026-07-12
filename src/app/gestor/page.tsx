@@ -11,6 +11,7 @@ export default function GestorPage() {
   const role = useAppStore((s) => s.role);
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const resetOnboarding = useAppStore((s) => s.resetOnboarding);
+  const gestorToken = useAppStore((s) => s.gestorToken);
 
   const [usuarios, setUsuarios] = useState<RevendedorAccountPublic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,13 +22,29 @@ export default function GestorPage() {
 
   useEffect(() => {
     if (!hasHydrated) return;
-    if (role !== "gestor") router.replace("/");
-  }, [hasHydrated, role, router]);
+    if (role !== "gestor" || !gestorToken) router.replace("/");
+  }, [hasHydrated, role, gestorToken, router]);
+
+  function authFetch(input: string, init: RequestInit = {}) {
+    return fetch(input, {
+      ...init,
+      headers: {
+        ...(init.headers ?? {}),
+        Authorization: `Bearer ${gestorToken}`,
+      },
+    }).then((res) => {
+      if (res.status === 401) {
+        resetOnboarding();
+        router.replace("/");
+      }
+      return res;
+    });
+  }
 
   async function loadUsuarios() {
     setLoading(true);
     try {
-      const res = await fetch("/api/gestor/usuarios");
+      const res = await authFetch("/api/gestor/usuarios");
       const data = await res.json();
       setUsuarios(data.usuarios ?? []);
       const drafts: Record<string, number> = {};
@@ -40,8 +57,9 @@ export default function GestorPage() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard data-fetching effect triggered when role becomes available
-    if (role === "gestor") loadUsuarios();
-  }, [role]);
+    if (role === "gestor" && gestorToken) loadUsuarios();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, gestorToken]);
 
   function withPending(id: string, fn: () => Promise<void>) {
     setPendingIds((prev) => new Set(prev).add(id));
@@ -56,7 +74,7 @@ export default function GestorPage() {
 
   function handleApprove(id: string) {
     withPending(id, async () => {
-      await fetch(`/api/gestor/usuarios/${id}`, {
+      await authFetch(`/api/gestor/usuarios/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "approve" }),
@@ -67,7 +85,7 @@ export default function GestorPage() {
 
   function handleSaveMaxDevices(id: string) {
     withPending(id, async () => {
-      await fetch(`/api/gestor/usuarios/${id}`, {
+      await authFetch(`/api/gestor/usuarios/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -81,7 +99,7 @@ export default function GestorPage() {
 
   function handleRemove(id: string) {
     withPending(id, async () => {
-      await fetch(`/api/gestor/usuarios/${id}`, { method: "DELETE" });
+      await authFetch(`/api/gestor/usuarios/${id}`, { method: "DELETE" });
       await loadUsuarios();
     });
   }
@@ -91,6 +109,16 @@ export default function GestorPage() {
       <AppHeader title="Área do Gestor" />
 
       <main className="flex flex-1 flex-col gap-4 px-4 py-5">
+        <button
+          onClick={() => router.push("/gestor/documentacao")}
+          className="animate-fade-slide-up flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3 text-left shadow-sm active:scale-[0.98]"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-gray-900">
+            📖 Documentação do app
+          </span>
+          <span className="text-gray-400">›</span>
+        </button>
+
         <div className="animate-fade-slide-up flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">
             Usuários (Revendedores)

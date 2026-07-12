@@ -1,0 +1,19 @@
+name: Verificar alertas de preço
+
+on:
+  schedule:
+    # GitHub's scheduler doesn't guarantee exact timing, so this fires more
+    # often than the shortest interval a device can configure (5 min) — the
+    # actual per-device cadence is enforced server-side in
+    # /api/beta/alertas/verificar, which skips any alert not due yet.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar endpoint de verificação de alertas
+        run: |
+          curl -sf -X POST "${{ vars.APP_URL || 'https://economizadorcoala.cosmerafa.workers.dev' }}/api/beta/alertas/verificar" \
+            -H "x-cron-secret: ${{ secrets.ALERTAS_CRON_SECRET }}"

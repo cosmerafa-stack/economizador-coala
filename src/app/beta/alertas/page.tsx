@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, getEffectiveLocation } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
-import { formatCurrency, formatTimeAgo } from "@/lib/format";
+import { formatCurrency, formatDistance, formatTimeAgo } from "@/lib/format";
+import { googleMapsUrl } from "@/lib/maps";
+import { haversineDistanceKm } from "@/lib/geo";
 import { PriceAlert } from "@/lib/types";
 
 export default function AlertasPage() {
@@ -13,6 +15,8 @@ export default function AlertasPage() {
   const role = useAppStore((s) => s.role);
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const ensureDeviceId = useAppStore((s) => s.ensureDeviceId);
+  const location = useAppStore((s) => s.location);
+  const searchRadiusKm = useAppStore((s) => s.searchRadiusKm);
 
   const [alertas, setAlertas] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +24,7 @@ export default function AlertasPage() {
   const [targetPrice, setTargetPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [verifyingIds, setVerifyingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -27,16 +32,47 @@ export default function AlertasPage() {
     else if (role !== "revendedor") router.replace("/buscar");
   }, [hasHydrated, role, router]);
 
+  function goToResultados(produtoQuery: string) {
+    router.push(`/resultados?q=${encodeURIComponent(produtoQuery)}`);
+  }
+
   async function load() {
     setLoading(true);
     try {
       const deviceId = ensureDeviceId();
-      const res = await fetch(`/api/beta/alertas?deviceId=${deviceId}`);
+      const { lat, lng } = getEffectiveLocation(location);
+      const res = await fetch(
+        `/api/beta/alertas?deviceId=${deviceId}&lat=${lat}&lng=${lng}&radius=${searchRadiusKm}`
+      );
       const data = await res.json();
       setAlertas(data.alertas ?? []);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleVerificarAgora(id: string) {
+    setVerifyingIds((prev) => new Set(prev).add(id));
+    const deviceId = ensureDeviceId();
+    const { lat, lng } = getEffectiveLocation(location);
+    fetch(`/api/beta/alertas/${id}/verificar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, lat, lng, radiusKm: searchRadiusKm }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok && data.alerta) {
+          setAlertas((prev) => prev.map((a) => (a.id === id ? data.alerta : a)));
+        }
+      })
+      .finally(() => {
+        setVerifyingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      });
   }
 
   useEffect(() => {
@@ -115,8 +151,10 @@ export default function AlertasPage() {
             {saving ? "Criando..." : "Criar alerta"}
           </button>
           <p className="mt-2 text-[11px] text-gray-400">
-            Verificação acontece quando você abre esta tela — ainda não avisa
-            enquanto o app está fechado.
+            Verificação acontece quando você abre esta tela e também em
+            segundo plano (intervalo configurável em Ajustes). Só dispara com
+            nota fiscal emitida nas últimas 24h, pra evitar mostrar preço já
+            ultrapassado.
           </p>
         </div>
 
@@ -134,14 +172,17 @@ export default function AlertasPage() {
                 className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">
+                  <button
+                    onClick={() => goToResultados(alerta.query)}
+                    className="text-left"
+                  >
+                    <p className="text-sm font-bold text-ml-blue underline decoration-ml-blue/30 underline-offset-2">
                       {alerta.query}
                     </p>
                     <p className="text-xs text-gray-400">
                       Alvo: {formatCurrency(alerta.targetPrice)}
                     </p>
-                  </div>
+                  </button>
                   <button
                     onClick={() => handleExcluir(alerta.id)}
                     aria-label="Excluir alerta"
@@ -151,20 +192,76 @@ export default function AlertasPage() {
                   </button>
                 </div>
                 {alerta.active ? (
-                  <span className="mt-2 inline-block rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-500">
-                    Aguardando...
-                  </span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="inline-block rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-500">
+                      Aguardando...
+                    </span>
+                    <button
+                      onClick={() => handleVerificarAgora(alerta.id)}
+                      disabled={verifyingIds.has(alerta.id)}
+                      className="text-[11px] font-semibold text-ml-blue disabled:opacity-50"
+                    >
+                      {verifyingIds.has(alerta.id)
+                        ? "Verificando..."
+                        : "🔄 Verificar agora"}
+                    </button>
+                  </div>
                 ) : (
                   <div className="mt-2 rounded-lg bg-ml-green/10 px-3 py-2 text-xs">
-                    <p className="font-bold text-ml-green">
-                      🎉 Encontrado por {formatCurrency(alerta.triggeredPrice ?? 0)}{" "}
-                      em {alerta.triggeredStoreName}
-                    </p>
-                    {alerta.triggeredAt && (
-                      <p className="text-gray-500">
-                        {formatTimeAgo(alerta.triggeredAt)}
+                    <button
+                      onClick={() => goToResultados(alerta.query)}
+                      className="w-full text-left active:scale-[0.98]"
+                    >
+                      <p className="font-bold text-ml-green">
+                        🎉 Visto por {formatCurrency(alerta.triggeredPrice ?? 0)}{" "}
+                        em {alerta.triggeredStoreName}
+                      </p>
+                      {alerta.triggeredEmittedAt && (
+                        <p className="text-gray-600">
+                          Nota fiscal emitida {formatTimeAgo(alerta.triggeredEmittedAt)}
+                        </p>
+                      )}
+                    </button>
+
+                    {alerta.triggeredStoreAddress && (
+                      <p className="mt-1.5 leading-snug text-gray-500">
+                        {alerta.triggeredStoreAddress}
                       </p>
                     )}
+                    {(alerta.triggeredStoreLat != null || alerta.triggeredStorePhone) && (
+                      <div className="mt-1 flex items-center gap-3 text-gray-500">
+                        {alerta.triggeredStoreLat != null &&
+                          alerta.triggeredStoreLng != null && (
+                            <span className="font-semibold text-ml-blue">
+                              {formatDistance(
+                                haversineDistanceKm(getEffectiveLocation(location), {
+                                  lat: alerta.triggeredStoreLat,
+                                  lng: alerta.triggeredStoreLng,
+                                })
+                              )}
+                            </span>
+                          )}
+                        {alerta.triggeredStorePhone && <span>{alerta.triggeredStorePhone}</span>}
+                      </div>
+                    )}
+                    {alerta.triggeredStoreLat != null && alerta.triggeredStoreLng != null && (
+                      <a
+                        href={googleMapsUrl(
+                          { lat: alerta.triggeredStoreLat, lng: alerta.triggeredStoreLng },
+                          alerta.triggeredStoreName ?? undefined
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1 font-semibold text-ml-blue"
+                      >
+                        📍 Abrir Mapa
+                      </a>
+                    )}
+
+                    <p className="mt-1.5 text-[11px] text-gray-400">
+                      Preço vem de nota fiscal recente, não de estoque em tempo
+                      real — confirme com a loja antes de ir.
+                    </p>
                   </div>
                 )}
               </div>

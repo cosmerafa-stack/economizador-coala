@@ -12,7 +12,7 @@ export default function OnboardingPage() {
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const setRole = useAppStore((s) => s.setRole);
   const setLocation = useAppStore((s) => s.setLocation);
-  const gestorPassword = useAppStore((s) => s.gestorPassword);
+  const setGestorToken = useAppStore((s) => s.setGestorToken);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<UserRole | null>(null);
@@ -22,6 +22,7 @@ export default function OnboardingPage() {
   const [gestorMode, setGestorMode] = useState(false);
   const [gestorInput, setGestorInput] = useState("");
   const [gestorError, setGestorError] = useState<string | null>(null);
+  const [gestorSubmitting, setGestorSubmitting] = useState(false);
   const draggingRef = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
 
@@ -99,12 +100,27 @@ export default function OnboardingPage() {
     setDragPos({ x: 0, y: 0 });
   }
 
-  function handleGestorSubmit() {
-    if (gestorInput === gestorPassword) {
+  async function handleGestorSubmit() {
+    setGestorSubmitting(true);
+    setGestorError(null);
+    try {
+      const res = await fetch("/api/gestor/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: gestorInput }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setGestorError(data.message ?? "Senha incorreta.");
+        return;
+      }
+      setGestorToken(data.token);
       setRole("gestor");
       router.replace("/gestor");
-    } else {
-      setGestorError("Senha incorreta.");
+    } catch {
+      setGestorError("Não foi possível verificar a senha agora.");
+    } finally {
+      setGestorSubmitting(false);
     }
   }
 
@@ -164,9 +180,10 @@ export default function OnboardingPage() {
             )}
             <button
               onClick={handleGestorSubmit}
-              className="rounded-2xl bg-ml-blue py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-[0.98] active:bg-ml-blue-dark"
+              disabled={gestorSubmitting || !gestorInput}
+              className="rounded-2xl bg-ml-blue py-3 text-sm font-bold text-white shadow-sm transition-transform active:scale-[0.98] active:bg-ml-blue-dark disabled:opacity-50"
             >
-              Entrar
+              {gestorSubmitting ? "Verificando..." : "Entrar"}
             </button>
             <button
               onClick={() => setGestorMode(false)}

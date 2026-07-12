@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchPrices } from "@/lib/precoDaHora";
+import { simplifySearchTerm } from "@/lib/searchTerm";
 import { SortOption } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -28,14 +29,27 @@ export async function POST(request: NextRequest) {
   const perQuery = await Promise.all(
     queries.map(async (query) => {
       try {
-        const { results } = await searchPrices({
+        const first = await searchPrices({
           query,
           lat: body.lat,
           lng: body.lng,
           radiusKm: body.radiusKm,
           sort,
         });
-        return { query, results };
+        if (first.results.length > 0) return { query, results: first.results };
+
+        const simplified = simplifySearchTerm(query);
+        if (simplified.toLowerCase() === query.toLowerCase()) {
+          return { query, results: first.results };
+        }
+        const retry = await searchPrices({
+          query: simplified,
+          lat: body.lat,
+          lng: body.lng,
+          radiusKm: body.radiusKm,
+          sort,
+        });
+        return { query, results: retry.results };
       } catch {
         return { query, results: [] as Awaited<ReturnType<typeof searchPrices>>["results"] };
       }

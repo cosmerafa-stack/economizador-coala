@@ -39,12 +39,32 @@ export default function ConsultarNotaPage() {
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const notas = useAppStore((s) => s.notas);
   const removeNota = useAppStore((s) => s.removeNota);
+  const updateNotaProduto = useAppStore((s) => s.updateNotaProduto);
 
   const [dataDe, setDataDe] = useState("");
   const [dataAte, setDataAte] = useState("");
   const [emitente, setEmitente] = useState("");
   const [produto, setProduto] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ notaId: string; index: number } | null>(null);
+  const [draftDescricao, setDraftDescricao] = useState("");
+  const [draftValorTotal, setDraftValorTotal] = useState("");
+
+  function startEdit(notaId: string, index: number, descricao: string, valorTotal: number | null) {
+    setEditing({ notaId, index });
+    setDraftDescricao(descricao);
+    setDraftValorTotal(valorTotal != null ? String(valorTotal) : "");
+  }
+
+  function saveEdit() {
+    if (!editing) return;
+    const valor = draftValorTotal.trim() === "" ? null : Number(draftValorTotal);
+    updateNotaProduto(editing.notaId, editing.index, {
+      descricao: draftDescricao.trim(),
+      valorTotal: Number.isFinite(valor as number) ? valor : null,
+    });
+    setEditing(null);
+  }
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -139,21 +159,74 @@ export default function ConsultarNotaPage() {
 
                     {nota.produtos.length > 0 && (
                       <div className="mb-3 flex flex-col gap-1.5">
-                        {nota.produtos.map((p, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between rounded-lg bg-gray-50 px-2.5 py-1.5 text-xs"
-                          >
-                            <span className="text-gray-700">
-                              {p.descricao || "Item"} × {p.quantidade}
-                            </span>
-                            <span className="font-semibold text-gray-800">
-                              {p.valorTotal != null
-                                ? formatCurrency(p.valorTotal)
-                                : "—"}
-                            </span>
-                          </div>
-                        ))}
+                        {nota.produtos.map((p, i) => {
+                          const isEditing =
+                            editing?.notaId === nota.id && editing.index === i;
+                          if (isEditing) {
+                            return (
+                              <div
+                                key={i}
+                                className="flex flex-col gap-1.5 rounded-lg border border-ml-blue/30 bg-ml-blue/5 px-2.5 py-2 text-xs"
+                              >
+                                <input
+                                  value={draftDescricao}
+                                  onChange={(e) => setDraftDescricao(e.target.value)}
+                                  placeholder="Descrição do item"
+                                  className="rounded-md border border-gray-200 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-ml-blue/20"
+                                />
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-gray-500">R$</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={draftValorTotal}
+                                    onChange={(e) => setDraftValorTotal(e.target.value)}
+                                    placeholder="0,00"
+                                    className="w-24 rounded-md border border-gray-200 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-ml-blue/20"
+                                  />
+                                  <button
+                                    onClick={saveEdit}
+                                    className="ml-auto rounded-md bg-ml-blue px-2.5 py-1 text-[11px] font-bold text-white active:scale-95"
+                                  >
+                                    Salvar
+                                  </button>
+                                  <button
+                                    onClick={() => setEditing(null)}
+                                    className="rounded-md px-2 py-1 text-[11px] font-semibold text-gray-500"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div
+                              key={i}
+                              className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5 text-xs"
+                            >
+                              <span className="text-gray-700">
+                                {p.descricao || "Item"} × {p.quantidade}
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-800">
+                                  {p.valorTotal != null
+                                    ? formatCurrency(p.valorTotal)
+                                    : "—"}
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    startEdit(nota.id, i, p.descricao, p.valorTotal)
+                                  }
+                                  aria-label="Corrigir item"
+                                  className="text-gray-300 hover:text-ml-blue"
+                                >
+                                  ✎
+                                </button>
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 

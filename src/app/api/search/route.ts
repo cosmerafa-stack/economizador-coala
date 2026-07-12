@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchPrices } from "@/lib/precoDaHora";
 import { searchProducts, DEFAULT_LOCATION } from "@/lib/mockData";
+import { simplifySearchTerm } from "@/lib/searchTerm";
 import { SortOption } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -30,14 +31,28 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { results, source, cachedAt } = await searchPrices({
-      query,
+    const first = await searchPrices({ query, lat, lng, radiusKm, sort });
+
+    if (first.results.length > 0) {
+      return NextResponse.json(first);
+    }
+
+    // Verbose names (e.g. copied from a saved receipt or cart item) often
+    // don't match the scraper's own product naming. Retry once with a
+    // shortened, more generic term before giving up.
+    const simplified = simplifySearchTerm(query);
+    if (simplified.toLowerCase() === query.toLowerCase()) {
+      return NextResponse.json(first);
+    }
+
+    const retry = await searchPrices({
+      query: simplified,
       lat,
       lng,
       radiusKm,
       sort,
     });
-    return NextResponse.json({ results, source, cachedAt });
+    return NextResponse.json(retry);
   } catch {
     const results = searchProducts({
       query,

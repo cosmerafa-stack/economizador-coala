@@ -78,9 +78,19 @@ export default function RadarPage() {
                   {formatCurrency(op.typicalPrice)}
                 </span>
               </div>
-              <p className="mt-2 text-[10px] text-gray-400">
-                {formatTimeAgo(op.recordedAt)}
-              </p>
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-[10px] text-gray-400">
+                  {formatTimeAgo(op.recordedAt)}
+                </p>
+                <span
+                  className={`text-[10px] font-semibold ${
+                    op.sampleCount >= 5 ? "text-gray-400" : "text-amber-500"
+                  }`}
+                  title="Quantidade de buscas que alimentam esta estimativa"
+                >
+                  baseado em {op.sampleCount} busca{op.sampleCount === 1 ? "" : "s"}
+                </span>
+              </div>
             </div>
           ))
         )}

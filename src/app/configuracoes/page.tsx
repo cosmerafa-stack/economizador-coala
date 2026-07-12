@@ -17,8 +17,10 @@ export default function ConfiguracoesPage() {
   const resetOnboarding = useAppStore((s) => s.resetOnboarding);
   const revendedorAuth = useAppStore((s) => s.revendedorAuth);
   const setRevendedorAuth = useAppStore((s) => s.setRevendedorAuth);
+  const ensureDeviceId = useAppStore((s) => s.ensureDeviceId);
   const [percent, setPercent] = useState(defaultProfitPercent);
   const [radius, setRadius] = useState(searchRadiusKm);
+  const [alertInterval, setAlertInterval] = useState(15);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -26,6 +28,18 @@ export default function ConfiguracoesPage() {
     if (!role) router.replace("/");
     else if (role === "gestor") router.replace("/gestor");
   }, [hasHydrated, role, router]);
+
+  useEffect(() => {
+    if (!hasHydrated || role !== "revendedor") return;
+    const deviceId = ensureDeviceId();
+    fetch(`/api/beta/alertas/configuracao?deviceId=${deviceId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Number.isFinite(data.intervalMinutes)) setAlertInterval(data.intervalMinutes);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated, role]);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -97,10 +111,53 @@ export default function ConfiguracoesPage() {
           </div>
         )}
 
+        {role === "revendedor" && (
+          <div
+            className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            style={{ animationDelay: "0.2s" }}
+          >
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Verificar alertas de preço a cada
+            </label>
+            <p className="mb-3 text-xs text-gray-400">
+              De quanto em quanto tempo o app confere se algum alerta ativo
+              já atingiu o preço-alvo, em segundo plano. Padrão de 15 min.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={5}
+                max={120}
+                step={5}
+                value={alertInterval}
+                onChange={(e) => setAlertInterval(Number(e.target.value))}
+                className="flex-1 accent-ml-blue"
+              />
+              <input
+                type="number"
+                min={5}
+                max={1440}
+                value={alertInterval}
+                onChange={(e) => setAlertInterval(Number(e.target.value))}
+                className="w-16 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm"
+              />
+              <span className="text-sm text-gray-500">min</span>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={() => {
             setDefaultProfitPercent(percent);
             setSearchRadiusKm(radius);
+            if (role === "revendedor") {
+              const deviceId = ensureDeviceId();
+              fetch("/api/beta/alertas/configuracao", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ deviceId, intervalMinutes: alertInterval }),
+              }).catch(() => {});
+            }
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
           }}

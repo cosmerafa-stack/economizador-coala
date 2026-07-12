@@ -24,8 +24,20 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: "Economizador Coala",
   description: "Compare preços de NFCe na Bahia e revenda com lucro",
+  manifest: "/manifest.json",
   icons: {
-    icon: "/coala-icon.svg",
+    icon: [
+      { url: "/coala-icon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Coala",
   },
 };
 
@@ -34,6 +46,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
+  themeColor: "#3483fa",
 };
 
 export default function RootLayout({

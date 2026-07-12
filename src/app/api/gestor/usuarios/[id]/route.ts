@@ -4,6 +4,7 @@ import {
   removeAccount,
   setMaxDevices,
 } from "@/lib/authStore.server";
+import { requireGestorAuth } from "@/lib/gestorAuth.server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await requireGestorAuth(request))) {
+    return NextResponse.json({ message: "Não autorizado." }, { status: 401 });
+  }
   const { id } = await params;
   const body = await request.json();
 
@@ -38,9 +42,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await requireGestorAuth(request))) {
+    return NextResponse.json({ message: "Não autorizado." }, { status: 401 });
+  }
   const { id } = await params;
   const ok = await removeAccount(id);
   return NextResponse.json({ ok });

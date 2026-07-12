@@ -29,12 +29,35 @@ export async function GET(request: NextRequest) {
     recorded_at: string;
   }[];
 
-  const pontos = rows.map((r) => ({
+  const allPontos = rows.map((r) => ({
     storeId: r.store_id,
     storeName: r.store_name,
     price: Number(r.price),
     recordedAt: r.recorded_at,
   }));
 
-  return NextResponse.json({ pontos });
+  // Substring-matched live searches occasionally pull in an unrelated
+  // product (e.g. a paint SKU that happens to contain "feijao"), which
+  // then wrecks the min/avg/max stats. Drop points far from the median
+  // before returning them.
+  const median = medianOf(allPontos.map((p) => p.price));
+  const pontos =
+    median > 0
+      ? allPontos.filter((p) => p.price >= median / 4 && p.price <= median * 4)
+      : allPontos;
+
+  return NextResponse.json({
+    pontos,
+    totalAmostras: allPontos.length,
+    descartados: allPontos.length - pontos.length,
+  });
+}
+
+function medianOf(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
 }
