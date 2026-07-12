@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CartItem, Coordinates, Nota, UserRole } from "./types";
+import { CartItem, Coordinates, Nota, PriceResult, UserRole } from "./types";
 import { DEFAULT_LOCATION } from "./mockData";
 import {
   pullCart,
@@ -22,6 +22,14 @@ export interface RevendedorAuth {
   nome: string;
 }
 
+export interface CachedResultados {
+  signature: string;
+  results: PriceResult[];
+  source: string;
+  cachedAt: string | null;
+  fetchedAt: number;
+}
+
 interface AppState {
   theme: Theme;
   role: UserRole | null;
@@ -36,6 +44,8 @@ interface AppState {
   gestorToken: string | null;
   deviceId: string | null;
   revendedorAuth: RevendedorAuth | null;
+  lastResultados: CachedResultados | null;
+  setLastResultados: (data: CachedResultados) => void;
   setGestorToken: (token: string | null) => void;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
@@ -83,6 +93,8 @@ export const useAppStore = create<AppState>()(
       gestorToken: null,
       deviceId: null,
       revendedorAuth: null,
+      lastResultados: null,
+      setLastResultados: (data) => set({ lastResultados: data }),
       setGestorToken: (token) => set({ gestorToken: token }),
       setRole: (role) => set({ role }),
       setLocation: (location) => set({ location }),

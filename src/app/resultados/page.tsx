@@ -3,13 +3,18 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, getEffectiveLocation } from "@/lib/store";
-import { SORT_LABELS } from "@/lib/sort";
+import { SORT_LABELS, sortResults } from "@/lib/sort";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { ProductResultCard } from "@/components/ProductResultCard";
 import { AddToCartModal } from "@/components/AddToCartModal";
 import { formatTimeAgo } from "@/lib/format";
 import { PriceResult, SortOption } from "@/lib/types";
+
+// Reuse the last fetch if the user navigates back to the same exact search
+// (e.g. add to cart, then go back to results) within this window, instead
+// of hitting the shared, rate-limited price source again for no reason.
+const RESULTS_REUSE_WINDOW_MS = 5 * 60 * 1000;
 
 function ResultadosContent() {
   const router = useRouter();
@@ -24,6 +29,8 @@ function ResultadosContent() {
   const addToCart = useAppStore((s) => s.addToCart);
   const setLastSearchQuery = useAppStore((s) => s.setLastSearchQuery);
   const addRecentSearch = useAppStore((s) => s.addRecentSearch);
+  const lastResultados = useAppStore((s) => s.lastResultados);
+  const setLastResultados = useAppStore((s) => s.setLastResultados);
 
   const [sort, setSort] = useState<SortOption>("preco_asc");
   const [cartTarget, setCartTarget] = useState<PriceResult | null>(null);
@@ -45,8 +52,30 @@ function ResultadosContent() {
     addRecentSearch(query);
 
     const effectiveLocation = getEffectiveLocation(location);
+    // Sort is deliberately not part of the signature — it's just a
+    // client-side reorder of the same data, not a reason to hit the
+    // shared, rate-limited price source again.
+    const signature = `${query.toLowerCase()}|${searchRadiusKm}|${effectiveLocation.lat.toFixed(3)}|${effectiveLocation.lng.toFixed(3)}`;
+
+    // Same underlying search, fetched recently (e.g. the user added an
+    // item to the cart and came back, or just changed the sort order) —
+    // reuse it instead of hitting the shared price source again.
+    if (
+      lastResultados &&
+      lastResultados.signature === signature &&
+      Date.now() - lastResultados.fetchedAt < RESULTS_REUSE_WINDOW_MS
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- adopting a cached snapshot when the fetch key hasn't changed is the same "sync state to key" pattern as the live-fetch branch below
+      setResults(sortResults(lastResultados.results, sort));
+      setUnavailable(lastResultados.source === "unavailable");
+      setCachedAt(lastResultados.source !== "live" ? lastResultados.cachedAt : null);
+      setLoading(false);
+      setResultsQuery(query);
+      return;
+    }
+
     const controller = new AbortController();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting loading/error state when the fetch key (query/location/sort) changes is the standard data-fetching effect pattern
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting loading/error state when the fetch key (query/location/radius) changes is the standard data-fetching effect pattern
     setLoading(true);
     setErrored(false);
     setUnavailable(false);
@@ -65,9 +94,19 @@ function ResultadosContent() {
     })
       .then((res) => res.json())
       .then((data) => {
-        setResults(data.results ?? []);
+        const fetched: PriceResult[] = data.results ?? [];
+        setResults(sortResults(fetched, sort));
         setUnavailable(data.source === "unavailable");
-        setCachedAt(data.source === "cache" ? data.cachedAt ?? null : null);
+        setCachedAt(data.source !== "live" ? data.cachedAt ?? null : null);
+        if (data.source !== "unavailable") {
+          setLastResultados({
+            signature,
+            results: fetched,
+            source: data.source ?? "live",
+            cachedAt: data.cachedAt ?? null,
+            fetchedAt: Date.now(),
+          });
+        }
       })
       .catch((err) => {
         if (err.name !== "AbortError") setErrored(true);
@@ -78,7 +117,8 @@ function ResultadosContent() {
       });
 
     return () => controller.abort();
-  }, [query, location, sort, searchRadiusKm, setLastSearchQuery, addRecentSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lastResultados is read but intentionally excluded so an in-flight fetch's own completion doesn't retrigger this effect
+  }, [query, location, sort, searchRadiusKm, setLastSearchQuery, addRecentSearch, setLastResultados]);
 
   return (
     <div className="flex flex-1 flex-col">
