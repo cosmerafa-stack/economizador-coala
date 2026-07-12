@@ -17,7 +17,7 @@ export interface Store {
 export interface PriceRecord {
   id: string;
   productName: string;
-  barcode: string;
+  barcode: string | null;
   price: number;
   store: Store;
   emittedAt: string; // ISO timestamp of the NFCe emission

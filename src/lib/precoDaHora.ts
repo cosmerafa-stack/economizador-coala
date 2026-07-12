@@ -129,14 +129,31 @@ export interface SearchLivePriceParams {
   page?: number;
 }
 
+// Real GTINs (EAN-8/12/13/14) are 8, 12, 13 or 14 digits. The source
+// sometimes has no proper barcode for a product and instead fills `gtin`
+// (or `codProduto`, which we used to fall back to) with the store's own
+// internal product code — which for some retailers is literally their own
+// CNPJ with a sequence number tacked on. Showing that to the user as
+// "Código de barras" is actively wrong, so we only trust values that look
+// like a real barcode and don't just echo the establishment's CNPJ back.
+function isPlausibleBarcode(value: string, cnpj: string): boolean {
+  if (!/^\d+$/.test(value)) return false;
+  if (![8, 12, 13, 14].includes(value.length)) return false;
+  if (value.startsWith(cnpj)) return false;
+  return true;
+}
+
 function mapResult(item: RawResultItem): PriceResult {
   const { produto, estabelecimento } = item;
   const address = `${produto ? "" : ""}${estabelecimento.endLogradouro} ${estabelecimento.endNumero} ${estabelecimento.bairro} ${estabelecimento.cep}, ${estabelecimento.municipio}`;
+  const cnpj = String(estabelecimento.cnpj);
+  const rawBarcode = produto.gtin ? String(produto.gtin) : null;
+  const barcode = rawBarcode && isPlausibleBarcode(rawBarcode, cnpj) ? rawBarcode : null;
 
   return {
     id: `${produto.codProduto}-${estabelecimento.cnpj}-${produto.data}`,
     productName: produto.descricao.trim(),
-    barcode: produto.gtin ? String(produto.gtin) : produto.codProduto,
+    barcode,
     price: produto.precoLiquido ?? produto.precoUnitario,
     store: {
       id: String(estabelecimento.cnpj),

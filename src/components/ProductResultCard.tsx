@@ -23,9 +23,11 @@ export function ProductResultCard({
       <p className="mt-1 text-2xl font-extrabold text-ml-green">
         {formatCurrency(result.price)}
       </p>
-      <p className="mt-0.5 text-xs text-gray-400">
-        Código de barras: {result.barcode}
-      </p>
+      {result.barcode && (
+        <p className="mt-0.5 text-xs text-gray-400">
+          Código de barras: {result.barcode}
+        </p>
+      )}
       <p className="text-xs text-gray-400">{formatTimeAgo(result.emittedAt)}</p>
 
       <div className="mt-3 border-t border-gray-100 pt-3">
