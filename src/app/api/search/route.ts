@@ -30,16 +30,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [], source: "none" });
   }
 
+  // The shared upstream scraper is rate-limited across every user of the
+  // app, so a fallback retry must not run on every plain 0-result search
+  // (most of which are genuinely "not found") — only opt-in callers that
+  // specifically deal with verbose saved names (Otimizador, Comparar
+  // notas) ask for it via retryShort=1.
+  const retryShort = params.get("retryShort") === "1";
+
   try {
     const first = await searchPrices({ query, lat, lng, radiusKm, sort });
 
-    if (first.results.length > 0) {
+    if (first.results.length > 0 || !retryShort) {
       return NextResponse.json(first);
     }
 
-    // Verbose names (e.g. copied from a saved receipt or cart item) often
-    // don't match the scraper's own product naming. Retry once with a
-    // shortened, more generic term before giving up.
     const simplified = simplifySearchTerm(query);
     if (simplified.toLowerCase() === query.toLowerCase()) {
       return NextResponse.json(first);

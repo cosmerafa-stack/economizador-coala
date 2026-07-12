@@ -51,6 +51,7 @@ export default function CompararNotasPage() {
               lng: String(effectiveLocation.lng),
               radius: String(searchRadiusKm),
               sort: "preco_asc",
+              retryShort: "1",
             });
             const res = await fetch(`/api/search?${searchParams.toString()}`);
             const data = await res.json();
