@@ -12,6 +12,7 @@ export default function LoginPage() {
   const setRevendedorAuth = useAppStore((s) => s.setRevendedorAuth);
   const setRole = useAppStore((s) => s.setRole);
   const setLocation = useAppStore((s) => s.setLocation);
+  const hydrateRevendedorData = useAppStore((s) => s.hydrateRevendedorData);
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -61,6 +62,7 @@ export default function LoginPage() {
       }
 
       setRevendedorAuth({ token: data.token, nome: data.nome });
+      await hydrateRevendedorData();
       finishLoginFlow();
     } catch {
       setError("Falha de conexão. Tente novamente.");

@@ -60,12 +60,13 @@ create table if not exists price_history (
 );
 create index if not exists price_history_query_idx on price_history (query, recorded_at desc);
 
--- Price-target alerts. Scoped by deviceId (not account) since consumidor
--- doesn't have login — mirrors the deviceId already used for revendedor
--- session/device limiting.
+-- Price-target alerts. Scoped by deviceId by default (consumidor doesn't
+-- log in), but tagged with account_id when created by a logged-in
+-- revendedor so it survives a device switch — see account_id below.
 create table if not exists price_alerts (
   id uuid primary key default gen_random_uuid(),
   device_id text not null,
+  account_id uuid references revendedor_accounts (id) on delete cascade,
   query text not null,
   target_price numeric(10, 2) not null,
   active boolean not null default true,
@@ -95,6 +96,7 @@ create table if not exists device_settings (
   updated_at timestamptz not null default now()
 );
 create index if not exists price_alerts_device_idx on price_alerts (device_id);
+create index if not exists price_alerts_account_idx on price_alerts (account_id);
 
 -- Manually reported prices ("preço colaborativo"). Not merged into the
 -- official search results yet — shown as its own feed inside the Beta area.
@@ -118,3 +120,44 @@ create table if not exists community_price_confirmations (
   unique (community_price_id, device_id)
 );
 create index if not exists community_price_confirmations_price_idx on community_price_confirmations (community_price_id);
+
+-- ===================== Dados do Revendedor (persistentes por conta) =====================
+-- Antes só viviam no localStorage do aparelho (zustand persist) — limpar o
+-- cache do navegador ou trocar de celular perdia tudo. Agora ficam
+-- atrelados à conta (revendedor_accounts.id), sobrevivendo a ambos.
+
+create table if not exists revendedor_cart_items (
+  id text primary key,
+  account_id uuid not null references revendedor_accounts (id) on delete cascade,
+  price_result jsonb not null,
+  profit_percent numeric(6, 2) not null,
+  resale_price numeric(10, 2) not null,
+  gross_profit numeric(10, 2) not null,
+  quantity integer not null default 1,
+  added_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists revendedor_cart_items_account_idx on revendedor_cart_items (account_id);
+
+create table if not exists revendedor_notas (
+  id text primary key,
+  account_id uuid not null references revendedor_accounts (id) on delete cascade,
+  emitente text not null default '',
+  destinatario text not null default '',
+  data_emissao date,
+  valor_total numeric(10, 2),
+  observacoes text not null default '',
+  produtos jsonb not null default '[]',
+  campos_extras jsonb not null default '[]',
+  fotos jsonb not null default '[]',
+  criado_em timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists revendedor_notas_account_idx on revendedor_notas (account_id);
+
+create table if not exists revendedor_settings (
+  account_id uuid primary key references revendedor_accounts (id) on delete cascade,
+  default_profit_percent numeric(6, 2) not null default 30,
+  search_radius_km integer not null default 25,
+  updated_at timestamptz not null default now()
+);

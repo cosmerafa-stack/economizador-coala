@@ -27,6 +27,10 @@ interface CheckAlertsParams {
   /** Limit the sweep to one device's alerts — always evaluated immediately
    * (screen-open check), ignoring the device's configured interval. */
   deviceId?: string;
+  /** Limit the sweep to one revendedor account's alerts (preferred over
+   * deviceId when the user is logged in, so alerts survive a device
+   * switch) — always evaluated immediately, same as deviceId. */
+  accountId?: string;
   /** Limit the sweep to a single alert — always evaluated immediately (the
    * "Verificar agora" button), ignoring the configured interval. */
   alertId?: string;
@@ -63,7 +67,7 @@ export async function checkAlerts(params: CheckAlertsParams = {}): Promise<void>
   const lat = params.lat ?? DEFAULT_LOCATION.lat;
   const lng = params.lng ?? DEFAULT_LOCATION.lng;
   const radiusKm = params.radiusKm ?? 50;
-  const isBackgroundSweep = !params.deviceId && !params.alertId;
+  const isBackgroundSweep = !params.deviceId && !params.accountId && !params.alertId;
 
   const active = (
     params.alertId
@@ -75,23 +79,32 @@ export async function checkAlerts(params: CheckAlertsParams = {}): Promise<void>
            where a.id = $1 and a.active = true`,
           [params.alertId, DEFAULT_ALERT_CHECK_INTERVAL_MINUTES]
         )
-      : params.deviceId
+      : params.accountId
         ? await sql.query(
             `select a.id, a.query, a.target_price, a.device_id, a.last_checked_at,
                     coalesce(s.alert_check_interval_minutes, $2) as interval_minutes
              from price_alerts a
              left join device_settings s on s.device_id = a.device_id
-             where a.device_id = $1 and a.active = true`,
-            [params.deviceId, DEFAULT_ALERT_CHECK_INTERVAL_MINUTES]
+             where a.account_id = $1 and a.active = true`,
+            [params.accountId, DEFAULT_ALERT_CHECK_INTERVAL_MINUTES]
           )
-        : await sql.query(
-            `select a.id, a.query, a.target_price, a.device_id, a.last_checked_at,
-                    coalesce(s.alert_check_interval_minutes, $1) as interval_minutes
-             from price_alerts a
-             left join device_settings s on s.device_id = a.device_id
-             where a.active = true`,
-            [DEFAULT_ALERT_CHECK_INTERVAL_MINUTES]
-          )
+        : params.deviceId
+          ? await sql.query(
+              `select a.id, a.query, a.target_price, a.device_id, a.last_checked_at,
+                      coalesce(s.alert_check_interval_minutes, $2) as interval_minutes
+               from price_alerts a
+               left join device_settings s on s.device_id = a.device_id
+               where a.device_id = $1 and a.active = true`,
+              [params.deviceId, DEFAULT_ALERT_CHECK_INTERVAL_MINUTES]
+            )
+          : await sql.query(
+              `select a.id, a.query, a.target_price, a.device_id, a.last_checked_at,
+                      coalesce(s.alert_check_interval_minutes, $1) as interval_minutes
+               from price_alerts a
+               left join device_settings s on s.device_id = a.device_id
+               where a.active = true`,
+              [DEFAULT_ALERT_CHECK_INTERVAL_MINUTES]
+            )
   ) as ActiveAlertRow[];
 
   for (const alert of active) {

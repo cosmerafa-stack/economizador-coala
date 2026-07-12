@@ -17,6 +17,11 @@ export default function AlertasPage() {
   const ensureDeviceId = useAppStore((s) => s.ensureDeviceId);
   const location = useAppStore((s) => s.location);
   const searchRadiusKm = useAppStore((s) => s.searchRadiusKm);
+  const revendedorAuth = useAppStore((s) => s.revendedorAuth);
+
+  function authHeader(): Record<string, string> {
+    return revendedorAuth ? { Authorization: `Bearer ${revendedorAuth.token}` } : {};
+  }
 
   const [alertas, setAlertas] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +47,8 @@ export default function AlertasPage() {
       const deviceId = ensureDeviceId();
       const { lat, lng } = getEffectiveLocation(location);
       const res = await fetch(
-        `/api/beta/alertas?deviceId=${deviceId}&lat=${lat}&lng=${lng}&radius=${searchRadiusKm}`
+        `/api/beta/alertas?deviceId=${deviceId}&lat=${lat}&lng=${lng}&radius=${searchRadiusKm}`,
+        { headers: authHeader() }
       );
       const data = await res.json();
       setAlertas(data.alertas ?? []);
@@ -57,7 +63,7 @@ export default function AlertasPage() {
     const { lat, lng } = getEffectiveLocation(location);
     fetch(`/api/beta/alertas/${id}/verificar`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeader() },
       body: JSON.stringify({ deviceId, lat, lng, radiusKm: searchRadiusKm }),
     })
       .then((res) => res.json())
@@ -89,7 +95,7 @@ export default function AlertasPage() {
       const deviceId = ensureDeviceId();
       await fetch("/api/beta/alertas", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader() },
         body: JSON.stringify({ deviceId, query, targetPrice: Number(targetPrice) }),
       });
       setQuery("");
@@ -101,7 +107,11 @@ export default function AlertasPage() {
   }
 
   async function handleExcluir(id: string) {
-    await fetch(`/api/beta/alertas/${id}`, { method: "DELETE" });
+    const deviceId = ensureDeviceId();
+    await fetch(`/api/beta/alertas/${id}?deviceId=${deviceId}`, {
+      method: "DELETE",
+      headers: authHeader(),
+    });
     setAlertas((a) => a.filter((x) => x.id !== id));
   }
 

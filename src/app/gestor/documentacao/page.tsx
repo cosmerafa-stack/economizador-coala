@@ -92,15 +92,32 @@ export default function DocumentacaoGestorPage() {
             <Codigo>@neondatabase/serverless</Codigo>. Tabelas principais:{" "}
             <Codigo>revendedor_accounts</Codigo>,{" "}
             <Codigo>revendedor_sessions</Codigo>,{" "}
+            <Codigo>revendedor_cart_items</Codigo>,{" "}
+            <Codigo>revendedor_notas</Codigo>,{" "}
+            <Codigo>revendedor_settings</Codigo>,{" "}
             <Codigo>price_history</Codigo>, <Codigo>price_alerts</Codigo>,{" "}
             <Codigo>community_prices</Codigo> e{" "}
             <Codigo>community_price_confirmations</Codigo>.
           </Bloco>
           <Bloco titulo="Estado do app">
             Zustand com <Codigo>persist</Codigo> em localStorage (chave{" "}
-            <Codigo>solucro-storage</Codigo>). Trocar de papel (ou sair) zera
-            carrinho, notas e buscas recentes — antes ficavam vazando de um
-            papel para o outro.
+            <Codigo>solucro-storage</Codigo>) continua sendo a fonte
+            imediata pra UI ficar rápida e funcionar offline. Trocar de
+            papel (ou sair) zera carrinho, notas e buscas recentes
+            localmente — antes ficavam vazando de um papel para o outro.
+          </Bloco>
+          <Bloco titulo="Dados do Revendedor persistem por conta">
+            Carrinho, notas/recibos, % de lucro padrão e raio de busca do
+            Revendedor não vivem só no aparelho — toda mudança sincroniza em
+            segundo plano com as tabelas <Codigo>revendedor_cart_items</Codigo>,{" "}
+            <Codigo>revendedor_notas</Codigo> e{" "}
+            <Codigo>revendedor_settings</Codigo>, vinculadas à conta (não ao
+            dispositivo). No login, se o servidor já tem dados pra aquela
+            conta, eles substituem o que estiver local (celular novo ou
+            cache limpo); se o servidor estiver vazio, o que existir local
+            é enviado pra cima. Alertas de preço-alvo também passaram a
+            gravar <Codigo>account_id</Codigo> além do{" "}
+            <Codigo>device_id</Codigo>, pelo mesmo motivo.
           </Bloco>
           <Bloco titulo="IA nas notas fiscais">
             Fotos/PDF de nota são lidos pelo Gemini (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import { checkAlerts } from "@/lib/alertasCheck.server";
+import { requireRevendedorAccount } from "@/lib/revendedorAuth.server";
 import { toPublicAlert, PriceAlertRow } from "@/lib/priceAlertPublic.server";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +21,11 @@ export async function POST(
   const lat = Number(body?.lat);
   const lng = Number(body?.lng);
   const radiusKm = Number(body?.radiusKm);
+  const accountId = await requireRevendedorAccount(request);
 
   const owned = (await sql.query(
-    "select id from price_alerts where id = $1 and device_id = $2",
-    [id, deviceId]
+    "select id from price_alerts where id = $1 and (device_id = $2 or ($3::uuid is not null and account_id = $3))",
+    [id, deviceId, accountId]
   )) as { id: string }[];
 
   if (owned.length === 0) {

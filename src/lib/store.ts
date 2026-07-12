@@ -4,6 +4,16 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CartItem, Coordinates, Nota, UserRole } from "./types";
 import { DEFAULT_LOCATION } from "./mockData";
+import {
+  pullCart,
+  pushCartSnapshot,
+  pullNotas,
+  pushNota,
+  deleteNotaRemote,
+  patchNotaProdutoRemote,
+  pullSettings,
+  pushSettings,
+} from "./revendedorSync";
 
 export type Theme = "light" | "dark";
 
@@ -51,6 +61,10 @@ interface AppState {
   setHasHydrated: (value: boolean) => void;
   ensureDeviceId: () => string;
   setRevendedorAuth: (auth: RevendedorAuth | null) => void;
+  /** Restores cart/notas/settings from the server after login — adopts
+   * server data when present (new device / cleared cache), otherwise
+   * uploads whatever exists locally so it starts being backed up. */
+  hydrateRevendedorData: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>()(
@@ -72,9 +86,20 @@ export const useAppStore = create<AppState>()(
       setGestorToken: (token) => set({ gestorToken: token }),
       setRole: (role) => set({ role }),
       setLocation: (location) => set({ location }),
-      setDefaultProfitPercent: (percent) =>
-        set({ defaultProfitPercent: percent }),
-      setSearchRadiusKm: (radiusKm) => set({ searchRadiusKm: radiusKm }),
+      setDefaultProfitPercent: (percent) => {
+        set({ defaultProfitPercent: percent });
+        const { role, revendedorAuth, searchRadiusKm } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          pushSettings(percent, searchRadiusKm, revendedorAuth.token).catch(() => {});
+        }
+      },
+      setSearchRadiusKm: (radiusKm) => {
+        set({ searchRadiusKm: radiusKm });
+        const { role, revendedorAuth, defaultProfitPercent } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          pushSettings(defaultProfitPercent, radiusKm, revendedorAuth.token).catch(() => {});
+        }
+      },
       setLastSearchQuery: (query) => set({ lastSearchQuery: query }),
       addRecentSearch: (query) =>
         set((state) => ({
@@ -89,20 +114,53 @@ export const useAppStore = create<AppState>()(
       setTheme: (theme) => set({ theme }),
       toggleTheme: () =>
         set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
-      addToCart: (item) => set((state) => ({ cart: [...state.cart, item] })),
-      removeFromCart: (id) =>
-        set((state) => ({ cart: state.cart.filter((i) => i.id !== id) })),
-      updateCartItemQuantity: (id, quantity) =>
+      addToCart: (item) => {
+        set((state) => ({ cart: [...state.cart, item] }));
+        const { role, revendedorAuth, cart } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          pushCartSnapshot(cart, revendedorAuth.token).catch(() => {});
+        }
+      },
+      removeFromCart: (id) => {
+        set((state) => ({ cart: state.cart.filter((i) => i.id !== id) }));
+        const { role, revendedorAuth, cart } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          pushCartSnapshot(cart, revendedorAuth.token).catch(() => {});
+        }
+      },
+      updateCartItemQuantity: (id, quantity) => {
         set((state) => ({
           cart: state.cart.map((i) =>
             i.id === id ? { ...i, quantity: Math.max(1, quantity) } : i
           ),
-        })),
-      clearCart: () => set({ cart: [] }),
-      addNota: (nota) => set((state) => ({ notas: [nota, ...state.notas] })),
-      removeNota: (id) =>
-        set((state) => ({ notas: state.notas.filter((n) => n.id !== id) })),
-      updateNotaProduto: (notaId, index, changes) =>
+        }));
+        const { role, revendedorAuth, cart } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          pushCartSnapshot(cart, revendedorAuth.token).catch(() => {});
+        }
+      },
+      clearCart: () => {
+        set({ cart: [] });
+        const { role, revendedorAuth } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          pushCartSnapshot([], revendedorAuth.token).catch(() => {});
+        }
+      },
+      addNota: (nota) => {
+        set((state) => ({ notas: [nota, ...state.notas] }));
+        const { role, revendedorAuth } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          pushNota(nota, revendedorAuth.token).catch(() => {});
+        }
+      },
+      removeNota: (id) => {
+        set((state) => ({ notas: state.notas.filter((n) => n.id !== id) }));
+        const { role, revendedorAuth } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          deleteNotaRemote(id, revendedorAuth.token).catch(() => {});
+        }
+      },
+      updateNotaProduto: (notaId, index, changes) => {
         set((state) => ({
           notas: state.notas.map((n) =>
             n.id !== notaId
@@ -114,7 +172,12 @@ export const useAppStore = create<AppState>()(
                   ),
                 }
           ),
-        })),
+        }));
+        const { role, revendedorAuth } = get();
+        if (role === "revendedor" && revendedorAuth) {
+          patchNotaProdutoRemote(notaId, index, changes, revendedorAuth.token).catch(() => {});
+        }
+      },
       resetOnboarding: () =>
         set({
           role: null,
@@ -136,6 +199,41 @@ export const useAppStore = create<AppState>()(
         return created;
       },
       setRevendedorAuth: (auth) => set({ revendedorAuth: auth }),
+      hydrateRevendedorData: async () => {
+        const { revendedorAuth, cart, notas, defaultProfitPercent, searchRadiusKm } = get();
+        if (!revendedorAuth) return;
+        const token = revendedorAuth.token;
+
+        const [remoteCart, remoteNotas, remoteSettings] = await Promise.all([
+          pullCart(token).catch(() => []),
+          pullNotas(token).catch(() => []),
+          pullSettings(token).catch(() => ({
+            found: false,
+            defaultProfitPercent: null,
+            searchRadiusKm: null,
+          })),
+        ]);
+
+        // Server already has data for this account (new device, or cache
+        // was cleared and this is a fresh login) — adopt it as the source
+        // of truth.
+        if (remoteCart.length > 0) set({ cart: remoteCart });
+        else if (cart.length > 0) pushCartSnapshot(cart, token).catch(() => {});
+
+        if (remoteNotas.length > 0) set({ notas: remoteNotas });
+        else if (notas.length > 0) {
+          for (const nota of notas) pushNota(nota, token).catch(() => {});
+        }
+
+        if (remoteSettings.found) {
+          set({
+            defaultProfitPercent: remoteSettings.defaultProfitPercent ?? defaultProfitPercent,
+            searchRadiusKm: remoteSettings.searchRadiusKm ?? searchRadiusKm,
+          });
+        } else {
+          pushSettings(defaultProfitPercent, searchRadiusKm, token).catch(() => {});
+        }
+      },
     }),
     {
       name: "solucro-storage",
