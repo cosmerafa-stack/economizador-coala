@@ -6,6 +6,8 @@ import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { SORT_LABELS } from "@/lib/sort";
+import { SortOption } from "@/lib/types";
 
 export default function BuscarPage() {
   const router = useRouter();
@@ -13,6 +15,8 @@ export default function BuscarPage() {
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const recentSearches = useAppStore((s) => s.recentSearches);
   const clearRecentSearches = useAppStore((s) => s.clearRecentSearches);
+  const sort = useAppStore((s) => s.sortOption);
+  const setSort = useAppStore((s) => s.setSortOption);
   const [query, setQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
 
@@ -50,6 +54,24 @@ export default function BuscarPage() {
               Buscar
             </button>
           </div>
+        </div>
+
+        <div
+          className="animate-fade-slide-up flex items-center gap-2"
+          style={{ animationDelay: "0.1s" }}
+        >
+          <label className="text-xs font-medium text-gray-500">Ordenar:</label>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className="flex-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm outline-none transition focus:ring-2 focus:ring-ml-blue/20"
+          >
+            {Object.entries(SORT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button

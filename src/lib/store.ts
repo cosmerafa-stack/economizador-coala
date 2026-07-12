@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CartItem, Coordinates, Nota, PriceResult, UserRole } from "./types";
+import { CartItem, Coordinates, Nota, PriceResult, SortOption, UserRole } from "./types";
 import { DEFAULT_LOCATION } from "./mockData";
 import {
   pullCart,
@@ -36,6 +36,8 @@ interface AppState {
   location: Coordinates | null;
   defaultProfitPercent: number;
   searchRadiusKm: number;
+  sortOption: SortOption;
+  setSortOption: (sort: SortOption) => void;
   cart: CartItem[];
   notas: Nota[];
   hasHydrated: boolean;
@@ -85,6 +87,8 @@ export const useAppStore = create<AppState>()(
       location: null,
       defaultProfitPercent: 30,
       searchRadiusKm: 25,
+      sortOption: "preco_asc",
+      setSortOption: (sort) => set({ sortOption: sort }),
       cart: [],
       notas: [],
       hasHydrated: false,

@@ -31,8 +31,9 @@ function ResultadosContent() {
   const addRecentSearch = useAppStore((s) => s.addRecentSearch);
   const lastResultados = useAppStore((s) => s.lastResultados);
   const setLastResultados = useAppStore((s) => s.setLastResultados);
+  const sort = useAppStore((s) => s.sortOption);
+  const setSort = useAppStore((s) => s.setSortOption);
 
-  const [sort, setSort] = useState<SortOption>("preco_asc");
   const [cartTarget, setCartTarget] = useState<PriceResult | null>(null);
   const [results, setResults] = useState<PriceResult[]>([]);
   const [loading, setLoading] = useState(Boolean(query));
