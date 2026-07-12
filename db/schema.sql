@@ -56,7 +56,15 @@ create table if not exists price_history (
   store_id text not null,
   store_name text not null,
   price numeric(10, 2) not null,
-  recorded_at timestamptz not null default now()
+  recorded_at timestamptz not null default now(),
+  -- Enough store detail (address/phone/coordinates) to reconstruct a full,
+  -- usable result — not just a stat — when this table is used as the
+  -- third-tier search fallback (see readHistoryFallback in precoDaHora.ts).
+  store_address text,
+  store_phone text,
+  store_lat double precision,
+  store_lng double precision,
+  barcode text
 );
 create index if not exists price_history_query_idx on price_history (query, recorded_at desc);
 

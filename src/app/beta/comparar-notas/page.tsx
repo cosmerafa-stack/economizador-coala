@@ -42,42 +42,46 @@ export default function CompararNotasPage() {
 
     try {
       const effectiveLocation = getEffectiveLocation(location);
-      const itens = await Promise.all(
-        nota.produtos.map(async (produto): Promise<ComparacaoItem> => {
-          try {
-            const searchParams = new URLSearchParams({
-              q: produto.descricao,
-              lat: String(effectiveLocation.lat),
-              lng: String(effectiveLocation.lng),
-              radius: String(searchRadiusKm),
-              sort: "preco_asc",
-              retryShort: "1",
-            });
-            const res = await fetch(`/api/search?${searchParams.toString()}`);
-            const data = await res.json();
-            const results: PriceResult[] = data.results ?? [];
-            const cheapest = results[0];
-            return {
-              descricao: produto.descricao,
-              valorPago: produto.valorUnitario,
-              menorPrecoHoje: cheapest ? cheapest.price : null,
-              lojaHoje: cheapest ? cheapest.store.name : null,
-              diferenca:
-                cheapest && produto.valorUnitario != null
-                  ? produto.valorUnitario - cheapest.price
-                  : null,
-            };
-          } catch {
-            return {
-              descricao: produto.descricao,
-              valorPago: produto.valorUnitario,
-              menorPrecoHoje: null,
-              lojaHoje: null,
-              diferenca: null,
-            };
-          }
-        })
-      );
+      // Sequential on purpose — the price source is shared across every
+      // user of the app, and firing one request per note item in parallel
+      // turns a single tap into a burst of concurrent hits, which is
+      // exactly what trips its rate limit even with just one person using
+      // the app.
+      const itens: ComparacaoItem[] = [];
+      for (const produto of nota.produtos) {
+        try {
+          const searchParams = new URLSearchParams({
+            q: produto.descricao,
+            lat: String(effectiveLocation.lat),
+            lng: String(effectiveLocation.lng),
+            radius: String(searchRadiusKm),
+            sort: "preco_asc",
+            retryShort: "1",
+          });
+          const res = await fetch(`/api/search?${searchParams.toString()}`);
+          const data = await res.json();
+          const results: PriceResult[] = data.results ?? [];
+          const cheapest = results[0];
+          itens.push({
+            descricao: produto.descricao,
+            valorPago: produto.valorUnitario,
+            menorPrecoHoje: cheapest ? cheapest.price : null,
+            lojaHoje: cheapest ? cheapest.store.name : null,
+            diferenca:
+              cheapest && produto.valorUnitario != null
+                ? produto.valorUnitario - cheapest.price
+                : null,
+          });
+        } catch {
+          itens.push({
+            descricao: produto.descricao,
+            valorPago: produto.valorUnitario,
+            menorPrecoHoje: null,
+            lojaHoje: null,
+            diferenca: null,
+          });
+        }
+      }
       setComparacao(itens);
     } finally {
       setLoading(false);

@@ -26,35 +26,43 @@ export async function POST(request: NextRequest) {
   }
 
   const sort: SortOption = "preco_asc";
-  const perQuery = await Promise.all(
-    queries.map(async (query) => {
-      try {
-        const first = await searchPrices({
-          query,
-          lat: body.lat,
-          lng: body.lng,
-          radiusKm: body.radiusKm,
-          sort,
-        });
-        if (first.results.length > 0) return { query, results: first.results };
-
-        const simplified = simplifySearchTerm(query);
-        if (simplified.toLowerCase() === query.toLowerCase()) {
-          return { query, results: first.results };
-        }
-        const retry = await searchPrices({
-          query: simplified,
-          lat: body.lat,
-          lng: body.lng,
-          radiusKm: body.radiusKm,
-          sort,
-        });
-        return { query, results: retry.results };
-      } catch {
-        return { query, results: [] as Awaited<ReturnType<typeof searchPrices>>["results"] };
+  // Sequential on purpose — the upstream price source is a single shared
+  // resource across every user of the app, and firing one request per cart
+  // item in parallel (as this used to) turns a single click into a burst
+  // of concurrent hits, which is exactly what trips its rate limit even
+  // with just one person using the app.
+  const perQuery: { query: string; results: Awaited<ReturnType<typeof searchPrices>>["results"] }[] = [];
+  for (const query of queries) {
+    try {
+      const first = await searchPrices({
+        query,
+        lat: body.lat,
+        lng: body.lng,
+        radiusKm: body.radiusKm,
+        sort,
+      });
+      if (first.results.length > 0) {
+        perQuery.push({ query, results: first.results });
+        continue;
       }
-    })
-  );
+
+      const simplified = simplifySearchTerm(query);
+      if (simplified.toLowerCase() === query.toLowerCase()) {
+        perQuery.push({ query, results: first.results });
+        continue;
+      }
+      const retry = await searchPrices({
+        query: simplified,
+        lat: body.lat,
+        lng: body.lng,
+        radiusKm: body.radiusKm,
+        sort,
+      });
+      perQuery.push({ query, results: retry.results });
+    } catch {
+      perQuery.push({ query, results: [] });
+    }
+  }
 
   // How much each store would cost, and how many of the queries it covers.
   const storeTotals = new Map<string, { total: number; count: number }>();

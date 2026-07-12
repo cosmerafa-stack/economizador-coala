@@ -203,6 +203,12 @@ async function postSearch(
 
 export class SourceUnavailableError extends Error {}
 
+// Deletes the shared session row so the very next caller bootstraps a
+// completely fresh one instead of reusing whatever just got rate-limited.
+async function invalidateSession(): Promise<void> {
+  await sql.query("delete from scrape_session where id = 1").catch(() => {});
+}
+
 export async function searchLivePrices(
   params: SearchLivePriceParams
 ): Promise<PriceResult[]> {
@@ -215,7 +221,19 @@ export async function searchLivePrices(
   }
 
   if (response.status === 429) {
-    throw new SourceUnavailableError("Limite de requisições atingido");
+    // A 429 can mean the shared session itself got flagged, not just
+    // "too many requests this instant" — if we don't clear it, every
+    // search for up to SESSION_TTL_MS reuses the same poisoned session
+    // and fails immediately, which is what made one rate-limit blip look
+    // like the whole service being down. Invalidate and try once more
+    // with a brand new session before actually giving up.
+    await invalidateSession();
+    session = await ensureSession(true);
+    response = await postSearch(params, session);
+
+    if (response.status === 429) {
+      throw new SourceUnavailableError("Limite de requisições atingido");
+    }
   }
 
   if (!response.ok) {
@@ -257,23 +275,108 @@ async function writeCache(query: string, results: PriceResult[]): Promise<void> 
 }
 
 // Appends a row per result so /beta/historico can show price trends over
-// time. Best-effort — a failure here must never break a search response.
+// time — and, with the store detail columns, so this same table can serve
+// as the search's own third-tier fallback (readHistoryFallback below).
+// Best-effort — a failure here must never break a search response.
 async function writeHistory(query: string, results: PriceResult[]): Promise<void> {
   if (results.length === 0) return;
   const values: string[] = [];
   const params: unknown[] = [];
   results.forEach((item, i) => {
-    const base = i * 5;
-    values.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`);
-    params.push(query, item.productName, item.store.id, item.store.name, item.price);
+    const base = i * 10;
+    values.push(
+      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10})`
+    );
+    params.push(
+      query,
+      item.productName,
+      item.store.id,
+      item.store.name,
+      item.price,
+      item.store.address,
+      item.store.phone,
+      item.store.coordinates.lat,
+      item.store.coordinates.lng,
+      item.barcode
+    );
   });
   await sql.query(
-    `insert into price_history (query, product_name, store_id, store_name, price) values ${values.join(",")}`,
+    `insert into price_history
+       (query, product_name, store_id, store_name, price, store_address, store_phone, store_lat, store_lng, barcode)
+     values ${values.join(",")}`,
     params
   );
 }
 
-export type SearchSource = "live" | "cache" | "unavailable";
+interface HistoryFallbackRow {
+  product_name: string;
+  store_id: string;
+  store_name: string;
+  price: string;
+  recorded_at: string;
+  store_address: string | null;
+  store_phone: string | null;
+  store_lat: number | null;
+  store_lng: number | null;
+  barcode: string | null;
+}
+
+// Third-tier fallback when both the live scrape and the snapshot cache come
+// up empty for this query — reconstructs full results from our own
+// accumulated price_history, one row per store (most recent seen), so the
+// user still gets something usable instead of a hard "unavailable".
+async function readHistoryFallback(
+  query: string,
+  location: Coordinates,
+  radiusKm: number
+): Promise<{ results: PriceResult[]; recordedAt: string } | null> {
+  const rows = (await sql.query(
+    `select distinct on (store_id)
+       product_name, store_id, store_name, price, recorded_at,
+       store_address, store_phone, store_lat, store_lng, barcode
+     from price_history
+     where lower(query) = $1
+       and recorded_at > now() - interval '7 days'
+       and store_lat is not null and store_lng is not null
+     order by store_id, recorded_at desc`,
+    [normalizeCacheKey(query)]
+  )) as HistoryFallbackRow[];
+
+  if (rows.length === 0) return null;
+
+  const results: PriceResult[] = rows
+    .map((row) => ({
+      id: `${row.store_id}-${row.recorded_at}`,
+      productName: row.product_name,
+      barcode: row.barcode,
+      price: Number(row.price),
+      store: {
+        id: row.store_id,
+        name: row.store_name,
+        address: row.store_address ?? "",
+        city: "",
+        phone: row.store_phone ?? "",
+        coordinates: { lat: row.store_lat as number, lng: row.store_lng as number },
+      },
+      emittedAt: row.recorded_at,
+      distanceKm: haversineDistanceKm(location, {
+        lat: row.store_lat as number,
+        lng: row.store_lng as number,
+      }),
+    }))
+    .filter((item) => item.distanceKm <= radiusKm);
+
+  if (results.length === 0) return null;
+
+  const recordedAt = rows.reduce(
+    (latest, row) => (row.recorded_at > latest ? row.recorded_at : latest),
+    rows[0].recorded_at
+  );
+
+  return { results, recordedAt };
+}
+
+export type SearchSource = "live" | "cache" | "history" | "unavailable";
 
 export interface SearchResponse {
   results: PriceResult[];
@@ -293,26 +396,42 @@ export async function searchPrices(
     writeHistory(params.query, results).catch(() => {});
     return { results, source: "live" };
   } catch (err) {
+    const location: Coordinates = { lat: params.lat, lng: params.lng };
     const cached = await readCache(params.query).catch(() => null);
-    if (!cached) {
-      if (err instanceof SourceUnavailableError) {
-        return { results: [], source: "unavailable" };
-      }
-      throw err;
+
+    if (cached) {
+      const recalculated = cached.results
+        .map((item) => ({
+          ...item,
+          distanceKm: haversineDistanceKm(location, item.store.coordinates),
+        }))
+        .filter((item) => item.distanceKm <= params.radiusKm);
+
+      return {
+        results: sortResults(recalculated, params.sort),
+        source: "cache",
+        cachedAt: cached.fetchedAt,
+      };
     }
 
-    const location: Coordinates = { lat: params.lat, lng: params.lng };
-    const recalculated = cached.results
-      .map((item) => ({
-        ...item,
-        distanceKm: haversineDistanceKm(location, item.store.coordinates),
-      }))
-      .filter((item) => item.distanceKm <= params.radiusKm);
+    // Neither a live scrape nor a recent cache snapshot — as a last resort,
+    // reconstruct results from our own accumulated price_history (up to 7
+    // days old), so a shared upstream outage doesn't mean "nothing" for a
+    // term other users have searched recently.
+    const history = await readHistoryFallback(params.query, location, params.radiusKm).catch(
+      () => null
+    );
+    if (history) {
+      return {
+        results: sortResults(history.results, params.sort),
+        source: "history",
+        cachedAt: history.recordedAt,
+      };
+    }
 
-    return {
-      results: sortResults(recalculated, params.sort),
-      source: "cache",
-      cachedAt: cached.fetchedAt,
-    };
+    if (err instanceof SourceUnavailableError) {
+      return { results: [], source: "unavailable" };
+    }
+    throw err;
   }
 }
