@@ -12,7 +12,12 @@ create table if not exists revendedor_accounts (
   password_hash text not null,
   approved boolean not null default false,
   max_devices integer not null default 1,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Set when the account was created/linked via "Continuar com o Google" —
+  -- password_hash still gets a random unusable value for these so the
+  -- column stays not-null without enabling a password login path.
+  google_sub text unique,
+  avatar_url text
 );
 
 create table if not exists revendedor_sessions (

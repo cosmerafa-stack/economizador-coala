@@ -16,6 +16,8 @@ interface AccountRow {
   approved: boolean;
   max_devices: number;
   created_at: string;
+  google_sub: string | null;
+  avatar_url: string | null;
 }
 
 interface SessionRow {
@@ -86,6 +88,36 @@ export async function registerAccount(input: {
   return { ok: true };
 }
 
+async function createSessionForApprovedAccount(
+  account: AccountRow,
+  deviceId: string
+): Promise<{ ok: true; token: string; nome: string } | { ok: false; message: string }> {
+  if (!account.approved) {
+    return {
+      ok: false,
+      message: "Seu cadastro ainda está em análise. Aguarde a aprovação.",
+    };
+  }
+
+  const othersCount = await countActiveDevices(account.id, deviceId);
+  if (othersCount >= account.max_devices) {
+    return {
+      ok: false,
+      message: `Limite de ${account.max_devices} dispositivo(s) simultâneo(s) atingido para esta conta.`,
+    };
+  }
+
+  // Clear any stale session for this exact device, then open a fresh one.
+  await sql.query("delete from revendedor_sessions where device_id = $1", [deviceId]);
+  const token = `tok-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  await sql.query(
+    "insert into revendedor_sessions (token, account_id, device_id) values ($1, $2, $3)",
+    [token, account.id, deviceId]
+  );
+
+  return { ok: true, token, nome: account.nome };
+}
+
 export async function login(input: {
   email: string;
   senha: string;
@@ -110,30 +142,80 @@ export async function login(input: {
     return { ok: false, message: "E-mail ou senha incorretos." };
   }
 
-  if (!account.approved) {
+  return createSessionForApprovedAccount(account, input.deviceId);
+}
+
+// "Continuar com o Google" — verifies the ID token server-side (route
+// handler does that) and passes us the already-trusted claims. Links to an
+// existing account by email on first use, or creates a new one (still
+// gated by the same gestor-approval workflow as a normal cadastro).
+export async function loginOrRegisterWithGoogle(input: {
+  googleSub: string;
+  email: string;
+  nome: string;
+  sobrenome: string;
+  avatarUrl: string | null;
+  deviceId: string;
+}): Promise<
+  | { ok: true; token: string; nome: string }
+  | { ok: false; message: string; pending?: boolean }
+> {
+  const emailNormalized = input.email.trim().toLowerCase();
+
+  const bySub = (await sql.query(
+    "select * from revendedor_accounts where google_sub = $1",
+    [input.googleSub]
+  )) as AccountRow[];
+  let account = bySub[0];
+
+  if (!account) {
+    const byEmail = (await sql.query(
+      "select * from revendedor_accounts where email = $1",
+      [emailNormalized]
+    )) as AccountRow[];
+    account = byEmail[0];
+
+    if (account) {
+      // Existing password-based account signing in with Google for the
+      // first time — link it instead of creating a duplicate.
+      await sql.query(
+        "update revendedor_accounts set google_sub = $1, avatar_url = coalesce(avatar_url, $2) where id = $3",
+        [input.googleSub, input.avatarUrl, account.id]
+      );
+    }
+  }
+
+  if (!account) {
+    // Brand new account. No password will ever be set for it, so give
+    // password_hash an unusable random value rather than relaxing the
+    // not-null constraint.
+    const randomPassword = crypto.randomUUID() + crypto.randomUUID();
+    const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+    const inserted = (await sql.query(
+      `insert into revendedor_accounts
+         (nome, sobrenome, telefone, email, password_hash, google_sub, avatar_url)
+       values ($1, $2, '', $3, $4, $5, $6)
+       returning *`,
+      [
+        input.nome.trim() || "Revendedor",
+        input.sobrenome.trim(),
+        emailNormalized,
+        passwordHash,
+        input.googleSub,
+        input.avatarUrl,
+      ]
+    )) as AccountRow[];
+    account = inserted[0];
+
     return {
       ok: false,
-      message: "Seu cadastro ainda está em análise. Aguarde a aprovação.",
+      pending: true,
+      message: "Cadastro criado com sua conta Google. Aguarde a aprovação do gestor.",
     };
   }
 
-  const othersCount = await countActiveDevices(account.id, input.deviceId);
-  if (othersCount >= account.max_devices) {
-    return {
-      ok: false,
-      message: `Limite de ${account.max_devices} dispositivo(s) simultâneo(s) atingido para esta conta.`,
-    };
-  }
-
-  // Clear any stale session for this exact device, then open a fresh one.
-  await sql.query("delete from revendedor_sessions where device_id = $1", [input.deviceId]);
-  const token = `tok-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  await sql.query(
-    "insert into revendedor_sessions (token, account_id, device_id) values ($1, $2, $3)",
-    [token, account.id, input.deviceId]
-  );
-
-  return { ok: true, token, nome: account.nome };
+  return createSessionForApprovedAccount(account, input.deviceId);
 }
 
 export async function heartbeat(token: string): Promise<boolean> {

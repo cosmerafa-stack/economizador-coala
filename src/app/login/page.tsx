@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -70,6 +71,33 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGoogleCredential(credential: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const deviceId = ensureDeviceId();
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential, deviceId }),
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        setError(data.message ?? "Não foi possível entrar com o Google.");
+        setLoading(false);
+        return;
+      }
+
+      setRevendedorAuth({ token: data.token, nome: data.nome });
+      await hydrateRevendedorData();
+      finishLoginFlow();
+    } catch {
+      setError("Falha de conexão. Tente novamente.");
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col">
       <AppHeader title="Entrar" showBack />
@@ -80,6 +108,16 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-gray-500">
             Entre com sua conta de revendedor
           </p>
+        </div>
+
+        <div className="animate-fade-slide-up">
+          <GoogleSignInButton onCredential={handleGoogleCredential} />
+        </div>
+
+        <div className="animate-fade-slide-up flex items-center gap-3 text-xs text-gray-400">
+          <div className="h-px flex-1 bg-gray-200" />
+          ou
+          <div className="h-px flex-1 bg-gray-200" />
         </div>
 
         <div className="animate-fade-slide-up flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
