@@ -100,6 +100,9 @@ export interface RevendedorAccountPublic {
 export interface PriceAlert {
   id: string;
   query: string;
+  /** Resolved once at creation time when `query` is a barcode/EAN — shown
+   * next to the code so the list doesn't just show raw digits. */
+  productName: string | null;
   targetPrice: number;
   active: boolean;
   triggeredAt: string | null;

@@ -4,6 +4,7 @@ import { PriceAlert } from "@/lib/types";
 export interface PriceAlertRow {
   id: string;
   query: string;
+  product_name: string | null;
   target_price: string;
   active: boolean;
   triggered_at: string | null;
@@ -21,6 +22,7 @@ export function toPublicAlert(row: PriceAlertRow): PriceAlert {
   return {
     id: row.id,
     query: row.query,
+    productName: row.product_name,
     targetPrice: Number(row.target_price),
     active: row.active,
     triggeredAt: row.triggered_at,

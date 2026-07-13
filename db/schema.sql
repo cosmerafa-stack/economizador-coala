@@ -76,6 +76,10 @@ create table if not exists price_alerts (
   device_id text not null,
   account_id uuid references revendedor_accounts (id) on delete cascade,
   query text not null,
+  -- Resolved once at creation time when `query` is a barcode/EAN, so the
+  -- list can show a real product name next to the code instead of just
+  -- the digits — see the barcode-lookup in POST /api/beta/alertas.
+  product_name text,
   target_price numeric(10, 2) not null,
   active boolean not null default true,
   triggered_at timestamptz,

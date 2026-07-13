@@ -93,10 +93,18 @@ export default function AlertasPage() {
     setSaving(true);
     try {
       const deviceId = ensureDeviceId();
+      const { lat, lng } = getEffectiveLocation(location);
       await fetch("/api/beta/alertas", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader() },
-        body: JSON.stringify({ deviceId, query, targetPrice: Number(targetPrice) }),
+        body: JSON.stringify({
+          deviceId,
+          query,
+          targetPrice: Number(targetPrice),
+          lat,
+          lng,
+          radiusKm: searchRadiusKm,
+        }),
       });
       setQuery("");
       setTargetPrice("");
@@ -186,9 +194,20 @@ export default function AlertasPage() {
                     onClick={() => goToResultados(alerta.query)}
                     className="text-left"
                   >
-                    <p className="text-sm font-bold text-ml-blue underline decoration-ml-blue/30 underline-offset-2">
-                      {alerta.query}
-                    </p>
+                    {alerta.productName ? (
+                      <>
+                        <p className="text-sm font-bold text-ml-blue underline decoration-ml-blue/30 underline-offset-2">
+                          {alerta.productName}
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          Código: {alerta.query}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm font-bold text-ml-blue underline decoration-ml-blue/30 underline-offset-2">
+                        {alerta.query}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-400">
                       Alvo: {formatCurrency(alerta.targetPrice)}
                     </p>
