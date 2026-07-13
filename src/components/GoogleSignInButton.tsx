@@ -24,7 +24,16 @@ declare global {
               width: number;
             }
           ) => void;
-          prompt: () => void;
+          prompt: (
+            callback?: (notification: {
+              isNotDisplayed: () => boolean;
+              isSkippedMoment: () => boolean;
+              isDismissedMoment: () => boolean;
+              getNotDisplayedReason: () => string;
+              getSkippedReason: () => string;
+              getDismissedReason: () => string;
+            }) => void
+          ) => void;
         };
       };
     };
@@ -84,8 +93,19 @@ export function GoogleSignInButton({ onCredential }: GoogleSignInButtonProps) {
 
       // Triggers the "Continuar como <Nome>" One Tap prompt when the
       // browser already has an active Google session from a previous
-      // sign-in — this is Google's own UI, not something we render.
-      window.google.accounts.id.prompt();
+      // sign-in — this is Google's own UI, not something we render. Google
+      // frequency-caps this aggressively (skips/dismisses can suppress it
+      // for days), so we just log why it didn't show rather than treat
+      // that as an error.
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed()) {
+          console.info("[Google One Tap] não exibido:", notification.getNotDisplayedReason());
+        } else if (notification.isSkippedMoment()) {
+          console.info("[Google One Tap] pulado:", notification.getSkippedReason());
+        } else if (notification.isDismissedMoment()) {
+          console.info("[Google One Tap] dispensado:", notification.getDismissedReason());
+        }
+      });
     });
 
     return () => {
