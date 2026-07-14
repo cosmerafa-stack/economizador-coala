@@ -2,9 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, FontSizeLevel } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { NotificationSettings } from "@/components/NotificationSettings";
+
+const FONT_SIZE_LABELS: Record<FontSizeLevel, string> = {
+  pequena: "Pequena",
+  media: "Média",
+  padrao: "Padrão",
+  grande: "Grande",
+  gigante: "Gigante",
+};
 
 export default function ConfiguracoesPage() {
   const router = useRouter();
@@ -18,9 +27,22 @@ export default function ConfiguracoesPage() {
   const revendedorAuth = useAppStore((s) => s.revendedorAuth);
   const setRevendedorAuth = useAppStore((s) => s.setRevendedorAuth);
   const ensureDeviceId = useAppStore((s) => s.ensureDeviceId);
+  const showProductImage = useAppStore((s) => s.showProductImage);
+  const setShowProductImage = useAppStore((s) => s.setShowProductImage);
+  const fontSizeLevel = useAppStore((s) => s.fontSizeLevel);
+  const setFontSizeLevel = useAppStore((s) => s.setFontSizeLevel);
+  const priceRangeMin = useAppStore((s) => s.priceRangeMin);
+  const priceRangeMax = useAppStore((s) => s.priceRangeMax);
+  const setPriceRange = useAppStore((s) => s.setPriceRange);
   const [percent, setPercent] = useState(defaultProfitPercent);
   const [radius, setRadius] = useState(searchRadiusKm);
   const [alertInterval, setAlertInterval] = useState(15);
+  const [priceMinInput, setPriceMinInput] = useState(
+    priceRangeMin != null ? String(priceRangeMin) : ""
+  );
+  const [priceMaxInput, setPriceMaxInput] = useState(
+    priceRangeMax != null ? String(priceRangeMax) : ""
+  );
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -146,10 +168,104 @@ export default function ConfiguracoesPage() {
           </div>
         )}
 
+        {role === "revendedor" && (
+          <div
+            className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            style={{ animationDelay: "0.22s" }}
+          >
+            <label className="flex items-center justify-between gap-3">
+              <span>
+                <span className="block text-sm font-medium text-gray-700">
+                  Mostrar imagem do produto
+                </span>
+                <span className="mt-0.5 block text-xs text-gray-400">
+                  Exibe uma miniatura ao lado de cada resultado da busca.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={showProductImage}
+                onChange={(e) => setShowProductImage(e.target.checked)}
+                className="h-5 w-5 flex-shrink-0 accent-ml-blue"
+              />
+            </label>
+          </div>
+        )}
+
+        <div
+          className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+          style={{ animationDelay: "0.24s" }}
+        >
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Tamanho da letra
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(FONT_SIZE_LABELS) as FontSizeLevel[]).map((level) => (
+              <button
+                key={level}
+                onClick={() => setFontSizeLevel(level)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  fontSizeLevel === level
+                    ? "bg-ml-blue text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {FONT_SIZE_LABELS[level]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <NotificationSettings />
+
+        <div
+          className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+          style={{ animationDelay: "0.26s" }}
+        >
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Faixa de preço na busca
+          </label>
+          <p className="mb-3 text-xs text-gray-400">
+            Mostra só resultados dentro desse intervalo. Deixe em branco para
+            não limitar.
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 items-center gap-1">
+              <span className="text-sm text-gray-500">R$</span>
+              <input
+                type="number"
+                min={0}
+                placeholder="Mín."
+                value={priceMinInput}
+                onChange={(e) => setPriceMinInput(e.target.value)}
+                className="w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1 text-sm"
+              />
+            </div>
+            <span className="text-gray-300">–</span>
+            <div className="flex flex-1 items-center gap-1">
+              <span className="text-sm text-gray-500">R$</span>
+              <input
+                type="number"
+                min={0}
+                placeholder="Máx."
+                value={priceMaxInput}
+                onChange={(e) => setPriceMaxInput(e.target.value)}
+                className="w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={() => {
             setDefaultProfitPercent(percent);
             setSearchRadiusKm(radius);
+            const parsedMin = priceMinInput.trim() === "" ? null : Number(priceMinInput);
+            const parsedMax = priceMaxInput.trim() === "" ? null : Number(priceMaxInput);
+            setPriceRange(
+              parsedMin != null && Number.isFinite(parsedMin) ? parsedMin : null,
+              parsedMax != null && Number.isFinite(parsedMax) ? parsedMax : null
+            );
             if (role === "revendedor") {
               const deviceId = ensureDeviceId();
               fetch("/api/beta/alertas/configuracao", {

@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, getEffectiveLocation } from "@/lib/store";
 import { SORT_LABELS, sortResults } from "@/lib/sort";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { SettingsMenuButton } from "@/components/SettingsMenuButton";
 import { ProductResultCard } from "@/components/ProductResultCard";
 import { AddToCartModal } from "@/components/AddToCartModal";
 import { formatTimeAgo } from "@/lib/format";
@@ -33,6 +34,8 @@ function ResultadosContent() {
   const setLastResultados = useAppStore((s) => s.setLastResultados);
   const sort = useAppStore((s) => s.sortOption);
   const setSort = useAppStore((s) => s.setSortOption);
+  const priceRangeMin = useAppStore((s) => s.priceRangeMin);
+  const priceRangeMax = useAppStore((s) => s.priceRangeMax);
 
   const [cartTarget, setCartTarget] = useState<PriceResult | null>(null);
   const [results, setResults] = useState<PriceResult[]>([]);
@@ -121,12 +124,22 @@ function ResultadosContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- lastResultados is read but intentionally excluded so an in-flight fetch's own completion doesn't retrigger this effect
   }, [query, location, sort, searchRadiusKm, setLastSearchQuery, addRecentSearch, setLastResultados]);
 
+  const filteredResults = useMemo(() => {
+    if (priceRangeMin == null && priceRangeMax == null) return results;
+    return results.filter(
+      (r) =>
+        (priceRangeMin == null || r.price >= priceRangeMin) &&
+        (priceRangeMax == null || r.price <= priceRangeMax)
+    );
+  }, [results, priceRangeMin, priceRangeMax]);
+
   return (
     <div className="flex flex-1 flex-col">
       <AppHeader
         title={`Resultados: "${query}"`}
         showBack
         onBack={() => router.push("/buscar")}
+        extra={<SettingsMenuButton />}
       />
 
       <div className="animate-fade-in sticky top-[52px] z-10 flex items-center gap-2 border-b border-gray-100 bg-white/80 px-4 py-2.5 backdrop-blur-md">
@@ -161,18 +174,28 @@ function ResultadosContent() {
             <br />
             Tente novamente em alguns instantes.
           </div>
-        ) : results.length === 0 ? (
+        ) : filteredResults.length === 0 ? (
           <div className="animate-fade-slide-up mt-10 text-center text-sm text-gray-400">
-            Nenhum resultado em um raio de {searchRadiusKm}km para &quot;{query}
-            &quot;.
-            <br />
-            Tente o nome completo ou o código de barras.
+            {results.length === 0 ? (
+              <>
+                Nenhum resultado em um raio de {searchRadiusKm}km para &quot;
+                {query}&quot;.
+                <br />
+                Tente o nome completo ou o código de barras.
+              </>
+            ) : (
+              <>
+                Nenhum resultado na faixa de preço configurada.
+                <br />
+                Ajuste o filtro de valor em Configurações.
+              </>
+            )}
           </div>
         ) : (
           <>
             <p className="animate-fade-in text-xs text-gray-400">
-              {results.length} resultado(s) encontrado(s) em até {searchRadiusKm}{" "}
-              km
+              {filteredResults.length} resultado(s) encontrado(s) em até{" "}
+              {searchRadiusKm} km
               {cachedAt && (
                 <span className="text-gray-300">
                   {" "}
@@ -180,7 +203,7 @@ function ResultadosContent() {
                 </span>
               )}
             </p>
-            {results.map((result, index) => (
+            {filteredResults.map((result, index) => (
               <div
                 key={result.id}
                 className="animate-fade-slide-up"

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAppStore, getEffectiveLocation } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { SettingsMenuButton } from "@/components/SettingsMenuButton";
 import { formatCurrency, formatTimeAgo } from "@/lib/format";
 import { googleMapsUrl } from "@/lib/maps";
 import { nearestNeighborOrder, googleMapsRouteUrl } from "@/lib/route";
@@ -114,7 +115,10 @@ export default function CarrinhoPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <AppHeader title={isRevendedor ? "Carrinho de revenda" : "Meu carrinho"} />
+      <AppHeader
+        title={isRevendedor ? "Carrinho de revenda" : "Meu carrinho"}
+        extra={<SettingsMenuButton />}
+      />
 
       <div className="px-4 pt-3">
         <button

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Sora } from "next/font/google";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { ThemeSync } from "@/components/ThemeSync";
+import { FontSizeSync } from "@/components/FontSizeSync";
 import { SessionHeartbeat } from "@/components/SessionHeartbeat";
+import { InstallBanner } from "@/components/InstallBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -62,8 +64,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[#ededed]">
         <div className="app-shell">
           <ThemeSync />
+          <FontSizeSync />
           <SessionHeartbeat />
           <AnimatedBackground />
+          <InstallBanner />
           {children}
         </div>
       </body>

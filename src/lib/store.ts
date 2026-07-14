@@ -17,6 +17,16 @@ import {
 
 export type Theme = "light" | "dark";
 
+export type FontSizeLevel = "pequena" | "media" | "padrao" | "grande" | "gigante";
+
+export const FONT_SIZE_SCALE: Record<FontSizeLevel, number> = {
+  pequena: 0.875,
+  media: 0.9375,
+  padrao: 1,
+  grande: 1.125,
+  gigante: 1.25,
+};
+
 export interface RevendedorAuth {
   token: string;
   nome: string;
@@ -47,6 +57,17 @@ interface AppState {
   deviceId: string | null;
   revendedorAuth: RevendedorAuth | null;
   lastResultados: CachedResultados | null;
+  showProductImage: boolean;
+  setShowProductImage: (value: boolean) => void;
+  fontSizeLevel: FontSizeLevel;
+  setFontSizeLevel: (level: FontSizeLevel) => void;
+  notificationsEnabled: boolean;
+  setNotificationsEnabled: (value: boolean) => void;
+  installBannerDismissed: boolean;
+  setInstallBannerDismissed: (value: boolean) => void;
+  priceRangeMin: number | null;
+  priceRangeMax: number | null;
+  setPriceRange: (min: number | null, max: number | null) => void;
   setLastResultados: (data: CachedResultados) => void;
   setGestorToken: (token: string | null) => void;
   setTheme: (theme: Theme) => void;
@@ -99,6 +120,17 @@ export const useAppStore = create<AppState>()(
       revendedorAuth: null,
       lastResultados: null,
       setLastResultados: (data) => set({ lastResultados: data }),
+      showProductImage: true,
+      setShowProductImage: (value) => set({ showProductImage: value }),
+      fontSizeLevel: "padrao",
+      setFontSizeLevel: (level) => set({ fontSizeLevel: level }),
+      notificationsEnabled: false,
+      setNotificationsEnabled: (value) => set({ notificationsEnabled: value }),
+      installBannerDismissed: false,
+      setInstallBannerDismissed: (value) => set({ installBannerDismissed: value }),
+      priceRangeMin: null,
+      priceRangeMax: null,
+      setPriceRange: (min, max) => set({ priceRangeMin: min, priceRangeMax: max }),
       setGestorToken: (token) => set({ gestorToken: token }),
       setRole: (role) => set({ role }),
       setLocation: (location) => set({ location }),

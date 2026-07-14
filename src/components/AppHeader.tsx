@@ -7,12 +7,14 @@ interface AppHeaderProps {
   title?: string;
   showBack?: boolean;
   onBack?: () => void;
+  extra?: React.ReactNode;
 }
 
 export function AppHeader({
   title = "Economizador Coala",
   showBack = false,
   onBack,
+  extra,
 }: AppHeaderProps) {
   const router = useRouter();
   const isBrand = title === "Economizador Coala";
@@ -44,6 +46,7 @@ export function AppHeader({
         >
           {title}
         </h1>
+        {extra}
         <ThemeToggle />
       </div>
     </header>
