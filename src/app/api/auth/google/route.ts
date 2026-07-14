@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginOrRegisterWithGoogle } from "@/lib/authStore.server";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit.server";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { ok: false, message: "Requisição inválida." },
       { status: 400 }
+    );
+  }
+
+  // Can't really be brute-forced (needs a Google-signed token), but a
+  // generous cap still guards against abuse hammering the tokeninfo call.
+  const ip = getClientIp(request);
+  const { allowed, retryAfterSeconds } = await checkRateLimit(
+    `google-auth:ip:${ip}`,
+    30,
+    15 * 60 * 1000
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { ok: false, message: "Muitas tentativas. Tente novamente em alguns minutos." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds ?? 900) } }
     );
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import { requireRevendedorAccount } from "@/lib/revendedorAuth.server";
+import { readJsonWithSizeLimit, tooLargeResponse } from "@/lib/requestLimits.server";
 import { Nota } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Não autorizado." }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null);
+  const parsed = await readJsonWithSizeLimit(request);
+  if (!parsed.ok) {
+    return tooLargeResponse();
+  }
+  const body = parsed.body as { nota?: Nota } | null;
   const nota: Nota | undefined = body?.nota;
   if (!nota?.id) {
     return NextResponse.json({ message: "Nota inválida." }, { status: 400 });

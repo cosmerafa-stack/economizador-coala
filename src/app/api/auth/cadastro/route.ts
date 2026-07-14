@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { registerAccount } from "@/lib/authStore.server";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit.server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { ok: false, message: "A senha precisa ter pelo menos 6 caracteres." },
       { status: 400 }
+    );
+  }
+
+  // Limits spam signups / mass account-enumeration attempts (the "e-mail
+  // já cadastrado" response below is informative by design for real
+  // users, so this is the main defense against it being abused at scale).
+  const ip = getClientIp(request);
+  const { allowed, retryAfterSeconds } = await checkRateLimit(
+    `cadastro:ip:${ip}`,
+    5,
+    60 * 60 * 1000
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { ok: false, message: "Muitas tentativas. Tente novamente mais tarde." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds ?? 3600) } }
     );
   }
 

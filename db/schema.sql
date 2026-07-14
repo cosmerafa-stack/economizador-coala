@@ -3,6 +3,15 @@
 
 create extension if not exists pgcrypto;
 
+-- Brute-force / spam throttling for auth endpoints. Backed by Postgres
+-- (not in-memory) because Cloudflare Workers isolates don't share memory
+-- across requests — same reason scrape_session lives here too.
+create table if not exists rate_limit_buckets (
+  key text primary key,
+  count integer not null default 0,
+  reset_at timestamptz not null
+);
+
 create table if not exists revendedor_accounts (
   id uuid primary key default gen_random_uuid(),
   nome text not null,

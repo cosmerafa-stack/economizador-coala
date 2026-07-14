@@ -108,8 +108,10 @@ async function createSessionForApprovedAccount(
   }
 
   // Clear any stale session for this exact device, then open a fresh one.
+  // crypto.randomUUID() — not Math.random(), which isn't cryptographically
+  // secure and would make session tokens theoretically guessable.
   await sql.query("delete from revendedor_sessions where device_id = $1", [deviceId]);
-  const token = `tok-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const token = `tok-${crypto.randomUUID()}`;
   await sql.query(
     "insert into revendedor_sessions (token, account_id, device_id) values ($1, $2, $3)",
     [token, account.id, deviceId]

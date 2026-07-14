@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractNotaFields, isReceiptAiConfigured } from "@/lib/receiptAi";
+import { readJsonWithSizeLimit, tooLargeResponse } from "@/lib/requestLimits.server";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,11 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const body = await request.json();
+  const parsed = await readJsonWithSizeLimit(request);
+  if (!parsed.ok) {
+    return tooLargeResponse();
+  }
+  const body = parsed.body as { photos?: string[] } | null;
   const photos: string[] = Array.isArray(body?.photos) ? body.photos : [];
 
   if (photos.length === 0) {
