@@ -202,6 +202,11 @@ export default function CarrinhoPage() {
                   ×
                 </button>
               </div>
+              {item.priceResult.barcode && (
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Código de barras: {item.priceResult.barcode}
+                </p>
+              )}
               <p className="mt-1 text-xs text-gray-400">
                 {item.priceResult.store.name} ·{" "}
                 {formatTimeAgo(item.priceResult.emittedAt)}
