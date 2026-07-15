@@ -1,6 +1,8 @@
 import "server-only";
 import { neon } from "@neondatabase/serverless";
 import bcrypt from "bcryptjs";
+import { TempAccountPublic } from "./types";
+import { getDefaultTrialHours } from "./appSettings.server";
 
 const sql = neon(process.env.DATABASE_URL as string);
 
@@ -18,6 +20,11 @@ interface AccountRow {
   created_at: string;
   google_sub: string | null;
   avatar_url: string | null;
+  is_temp: boolean;
+  expires_at: string | null;
+  disabled_at: string | null;
+  must_change_password: boolean;
+  welcome_shown: boolean;
 }
 
 interface SessionRow {
@@ -88,10 +95,31 @@ export async function registerAccount(input: {
   return { ok: true };
 }
 
+export interface LoginSuccess {
+  ok: true;
+  token: string;
+  nome: string;
+  mustChangePassword: boolean;
+  isTemp: boolean;
+  expiresAt: string | null;
+  welcomeShown: boolean;
+}
+
 async function createSessionForApprovedAccount(
   account: AccountRow,
   deviceId: string
-): Promise<{ ok: true; token: string; nome: string } | { ok: false; message: string }> {
+): Promise<LoginSuccess | { ok: false; message: string }> {
+  if (account.disabled_at) {
+    return { ok: false, message: "Este acesso foi desativado. Entre em contato com o suporte." };
+  }
+
+  if (account.is_temp && account.expires_at && new Date(account.expires_at).getTime() < Date.now()) {
+    return {
+      ok: false,
+      message: "Seu período de teste expirou. Entre em contato para continuar usando.",
+    };
+  }
+
   if (!account.approved) {
     return {
       ok: false,
@@ -117,17 +145,22 @@ async function createSessionForApprovedAccount(
     [token, account.id, deviceId]
   );
 
-  return { ok: true, token, nome: account.nome };
+  return {
+    ok: true,
+    token,
+    nome: account.nome,
+    mustChangePassword: account.must_change_password,
+    isTemp: account.is_temp,
+    expiresAt: account.expires_at,
+    welcomeShown: account.welcome_shown,
+  };
 }
 
 export async function login(input: {
   email: string;
   senha: string;
   deviceId: string;
-}): Promise<
-  | { ok: true; token: string; nome: string }
-  | { ok: false; message: string }
-> {
+}): Promise<LoginSuccess | { ok: false; message: string }> {
   const emailNormalized = input.email.trim().toLowerCase();
   const accounts = (await sql.query(
     "select * from revendedor_accounts where email = $1",
@@ -158,10 +191,7 @@ export async function loginOrRegisterWithGoogle(input: {
   sobrenome: string;
   avatarUrl: string | null;
   deviceId: string;
-}): Promise<
-  | { ok: true; token: string; nome: string }
-  | { ok: false; message: string; pending?: boolean }
-> {
+}): Promise<LoginSuccess | { ok: false; message: string; pending?: boolean }> {
   const emailNormalized = input.email.trim().toLowerCase();
 
   const bySub = (await sql.query(
@@ -234,9 +264,129 @@ export async function logout(token: string): Promise<void> {
 
 export async function listAccounts(): Promise<Awaited<ReturnType<typeof toPublic>>[]> {
   const accounts = (await sql.query(
-    "select * from revendedor_accounts order by created_at desc"
+    "select * from revendedor_accounts where is_temp = false order by created_at desc"
   )) as AccountRow[];
   return Promise.all(accounts.map(toPublic));
+}
+
+// ===================== Contas temporárias (demo) =====================
+
+function usernameToEmail(username: string): string {
+  return username
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // remove acentos (marcas de combinação do NFD)
+    .replace(/[^a-z0-9._-]/g, "");
+}
+
+export async function createTempAccount(input: {
+  username: string;
+  trialHours?: number;
+}): Promise<{ ok: true; username: string } | { ok: false; message: string }> {
+  const username = usernameToEmail(input.username);
+  if (!username) {
+    return { ok: false, message: "Nome de usuário inválido." };
+  }
+
+  const existing = (await sql.query(
+    "select id from revendedor_accounts where email = $1",
+    [username]
+  )) as { id: string }[];
+  if (existing.length > 0) {
+    return { ok: false, message: "Já existe um usuário com esse nome." };
+  }
+
+  const trialHours = input.trialHours ?? (await getDefaultTrialHours());
+  const passwordHash = await bcrypt.hash("123", 10);
+  const expiresAt = new Date(Date.now() + trialHours * 60 * 60 * 1000);
+
+  await sql.query(
+    `insert into revendedor_accounts
+       (nome, sobrenome, telefone, email, password_hash, approved, is_temp, expires_at, must_change_password)
+     values ($1, '', '', $2, $3, true, true, $4, true)`,
+    [username, username, passwordHash, expiresAt.toISOString()]
+  );
+
+  return { ok: true, username };
+}
+
+function toTempPublic(account: AccountRow): TempAccountPublic {
+  const remainingMs = account.expires_at
+    ? new Date(account.expires_at).getTime() - Date.now()
+    : null;
+  return {
+    id: account.id,
+    username: account.email,
+    createdAt: account.created_at,
+    expiresAt: account.expires_at,
+    disabled: Boolean(account.disabled_at),
+    mustChangePassword: account.must_change_password,
+    remainingMs,
+  };
+}
+
+export async function listTempAccounts(): Promise<TempAccountPublic[]> {
+  const accounts = (await sql.query(
+    "select * from revendedor_accounts where is_temp = true order by created_at desc"
+  )) as AccountRow[];
+  return accounts.map(toTempPublic);
+}
+
+export async function disableAccount(id: string): Promise<boolean> {
+  const result = (await sql.query(
+    "update revendedor_accounts set disabled_at = now() where id = $1 and is_temp = true returning id",
+    [id]
+  )) as { id: string }[];
+  return result.length > 0;
+}
+
+export async function enableAccount(id: string): Promise<boolean> {
+  const result = (await sql.query(
+    "update revendedor_accounts set disabled_at = null where id = $1 and is_temp = true returning id",
+    [id]
+  )) as { id: string }[];
+  return result.length > 0;
+}
+
+// Adds hours to whatever time is left (or to now, if already expired) —
+// separate from a hard reset so extending a near-expired trial doesn't
+// silently throw away a still-valid remainder.
+export async function extendExpiration(id: string, extraHours: number): Promise<boolean> {
+  const accounts = (await sql.query(
+    "select expires_at from revendedor_accounts where id = $1 and is_temp = true",
+    [id]
+  )) as { expires_at: string | null }[];
+  const account = accounts[0];
+  if (!account) return false;
+
+  const base = account.expires_at && new Date(account.expires_at).getTime() > Date.now()
+    ? new Date(account.expires_at).getTime()
+    : Date.now();
+  const newExpiresAt = new Date(base + extraHours * 60 * 60 * 1000);
+
+  const result = (await sql.query(
+    "update revendedor_accounts set expires_at = $1 where id = $2 returning id",
+    [newExpiresAt.toISOString(), id]
+  )) as { id: string }[];
+  return result.length > 0;
+}
+
+export async function changePassword(accountId: string, newPassword: string): Promise<boolean> {
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const result = (await sql.query(
+    "update revendedor_accounts set password_hash = $1, must_change_password = false where id = $2 returning id",
+    [passwordHash, accountId]
+  )) as { id: string }[];
+  return result.length > 0;
+}
+
+export async function markWelcomeShown(accountId: string): Promise<boolean> {
+  const result = (await sql.query(
+    "update revendedor_accounts set welcome_shown = true where id = $1 returning id",
+    [accountId]
+  )) as { id: string }[];
+  return result.length > 0;
 }
 
 export async function approveAccount(id: string): Promise<boolean> {

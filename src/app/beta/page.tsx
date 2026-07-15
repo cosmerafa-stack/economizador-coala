@@ -82,7 +82,7 @@ export default function BetaHubPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <AppHeader title="Beta (experimental)" showBack />
+      <AppHeader title="Beta (experimental)" showBack dataTutorial="beta-nav" />
 
       <main className="flex flex-1 flex-col gap-3 px-4 py-5">
         <div

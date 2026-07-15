@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
+import { useFinishRevendedorLogin } from "@/lib/useFinishRevendedorLogin";
 import { AppHeader } from "@/components/AppHeader";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
@@ -11,37 +12,42 @@ export default function LoginPage() {
   const router = useRouter();
   const ensureDeviceId = useAppStore((s) => s.ensureDeviceId);
   const setRevendedorAuth = useAppStore((s) => s.setRevendedorAuth);
-  const setRole = useAppStore((s) => s.setRole);
-  const setLocation = useAppStore((s) => s.setLocation);
   const hydrateRevendedorData = useAppStore((s) => s.hydrateRevendedorData);
+  const finishRevendedorLogin = useFinishRevendedorLogin();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function finishLoginFlow() {
-    setRole("revendedor");
+  async function afterLoginSuccess(data: {
+    token: string;
+    nome: string;
+    mustChangePassword: boolean;
+    isTemp: boolean;
+    expiresAt: string | null;
+    welcomeShown: boolean;
+  }) {
+    setRevendedorAuth({
+      token: data.token,
+      nome: data.nome,
+      isTemp: data.isTemp,
+      expiresAt: data.expiresAt,
+      welcomeShown: data.welcomeShown,
+    });
 
-    if (!navigator.geolocation) {
-      router.replace("/buscar");
+    if (data.mustChangePassword) {
+      router.replace("/trocar-senha");
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        router.replace("/buscar");
-      },
-      () => router.replace("/buscar")
-    );
+
+    await hydrateRevendedorData();
+    finishRevendedorLogin();
   }
 
   async function handleSubmit() {
     if (!email.trim() || !senha) {
-      setError("Preencha e-mail e senha.");
+      setError("Preencha e-mail/usuário e senha.");
       return;
     }
     setLoading(true);
@@ -62,9 +68,7 @@ export default function LoginPage() {
         return;
       }
 
-      setRevendedorAuth({ token: data.token, nome: data.nome });
-      await hydrateRevendedorData();
-      finishLoginFlow();
+      await afterLoginSuccess(data);
     } catch {
       setError("Falha de conexão. Tente novamente.");
       setLoading(false);
@@ -89,9 +93,7 @@ export default function LoginPage() {
         return;
       }
 
-      setRevendedorAuth({ token: data.token, nome: data.nome });
-      await hydrateRevendedorData();
-      finishLoginFlow();
+      await afterLoginSuccess(data);
     } catch {
       setError("Falha de conexão. Tente novamente.");
       setLoading(false);
@@ -123,10 +125,11 @@ export default function LoginPage() {
         <div className="animate-fade-slide-up flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500">
-              E-mail
+              E-mail ou usuário
             </label>
             <input
-              type="email"
+              type="text"
+              autoCapitalize="none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}

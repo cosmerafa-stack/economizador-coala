@@ -118,6 +118,7 @@ export default function CarrinhoPage() {
       <AppHeader
         title={isRevendedor ? "Carrinho de revenda" : "Meu carrinho"}
         extra={<SettingsMenuButton />}
+        dataTutorial="carrinho-nav"
       />
 
       <div className="px-4 pt-3">

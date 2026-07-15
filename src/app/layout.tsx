@@ -5,6 +5,9 @@ import { ThemeSync } from "@/components/ThemeSync";
 import { FontSizeSync } from "@/components/FontSizeSync";
 import { SessionHeartbeat } from "@/components/SessionHeartbeat";
 import { InstallBanner } from "@/components/InstallBanner";
+import { WelcomeModal } from "@/components/WelcomeModal";
+import { HelpButton } from "@/components/HelpButton";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -68,6 +71,9 @@ export default function RootLayout({
           <SessionHeartbeat />
           <AnimatedBackground />
           <InstallBanner />
+          <WelcomeModal />
+          <HelpButton />
+          <TutorialOverlay />
           {children}
         </div>
       </body>

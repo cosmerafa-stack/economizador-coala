@@ -193,6 +193,7 @@ export default function ConfiguracoesPage() {
         )}
 
         <div
+          data-tutorial="config-font-size"
           className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
           style={{ animationDelay: "0.24s" }}
         >

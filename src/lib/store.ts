@@ -30,6 +30,9 @@ export const FONT_SIZE_SCALE: Record<FontSizeLevel, number> = {
 export interface RevendedorAuth {
   token: string;
   nome: string;
+  isTemp?: boolean;
+  expiresAt?: string | null;
+  welcomeShown?: boolean;
 }
 
 export interface CachedResultados {
@@ -68,6 +71,12 @@ interface AppState {
   priceRangeMin: number | null;
   priceRangeMax: number | null;
   setPriceRange: (min: number | null, max: number | null) => void;
+  tutorialActive: boolean;
+  tutorialStep: number;
+  startTutorial: () => void;
+  stopTutorial: () => void;
+  nextTutorialStep: (lastStepIndex: number) => void;
+  prevTutorialStep: () => void;
   setLastResultados: (data: CachedResultados) => void;
   setGestorToken: (token: string | null) => void;
   setTheme: (theme: Theme) => void;
@@ -131,6 +140,19 @@ export const useAppStore = create<AppState>()(
       priceRangeMin: null,
       priceRangeMax: null,
       setPriceRange: (min, max) => set({ priceRangeMin: min, priceRangeMax: max }),
+      tutorialActive: false,
+      tutorialStep: 0,
+      startTutorial: () => set({ tutorialActive: true, tutorialStep: 0 }),
+      stopTutorial: () => set({ tutorialActive: false }),
+      nextTutorialStep: (lastStepIndex) =>
+        set((state) => {
+          const next = state.tutorialStep + 1;
+          return next > lastStepIndex
+            ? { tutorialActive: false }
+            : { tutorialStep: next };
+        }),
+      prevTutorialStep: () =>
+        set((state) => ({ tutorialStep: Math.max(0, state.tutorialStep - 1) })),
       setGestorToken: (token) => set({ gestorToken: token }),
       setRole: (role) => set({ role }),
       setLocation: (location) => set({ location }),

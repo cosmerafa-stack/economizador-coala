@@ -26,7 +26,23 @@ create table if not exists revendedor_accounts (
   -- password_hash still gets a random unusable value for these so the
   -- column stays not-null without enabling a password login path.
   google_sub text unique,
-  avatar_url text
+  avatar_url text,
+  -- Demo/trial accounts created by the gestor (username in the email
+  -- column, no real e-mail). expires_at null means "not a temp account or
+  -- no expiration"; disabled_at is the soft "Excluir acesso" toggle
+  -- ("Reativar acesso" just clears it back to null).
+  is_temp boolean not null default false,
+  expires_at timestamptz,
+  disabled_at timestamptz,
+  must_change_password boolean not null default false,
+  welcome_shown boolean not null default false
+);
+
+-- Small global key/value config store, e.g. the gestor-configurable
+-- default trial length for new demo accounts.
+create table if not exists app_settings (
+  key text primary key,
+  value text not null
 );
 
 create table if not exists revendedor_sessions (

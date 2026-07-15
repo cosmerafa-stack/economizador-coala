@@ -41,6 +41,7 @@ export default function BuscarPage() {
           </label>
           <div className="flex gap-2">
             <input
+              data-tutorial="busca-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && goSearch(query)}
@@ -75,6 +76,7 @@ export default function BuscarPage() {
         </div>
 
         <button
+          data-tutorial="busca-camera"
           onClick={() => setScannerOpen(true)}
           className="animate-fade-slide-up flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ml-blue/40 bg-ml-blue/5 py-4 text-sm font-semibold text-ml-blue transition-all hover:border-ml-blue/60 hover:bg-ml-blue/10 active:scale-[0.98]"
           style={{ animationDelay: "0.15s" }}

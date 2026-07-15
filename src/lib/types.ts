@@ -95,6 +95,16 @@ export interface RevendedorAccountPublic {
   createdAt: string;
 }
 
+export interface TempAccountPublic {
+  id: string;
+  username: string;
+  createdAt: string;
+  expiresAt: string | null;
+  disabled: boolean;
+  mustChangePassword: boolean;
+  remainingMs: number | null;
+}
+
 // ===================== Área Beta (experimental) =====================
 
 export interface PriceAlert {

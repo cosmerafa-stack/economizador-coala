@@ -145,6 +145,7 @@ function ResultadosContent() {
       <div className="animate-fade-in sticky top-[52px] z-10 flex items-center gap-2 border-b border-gray-100 bg-white/80 px-4 py-2.5 backdrop-blur-md">
         <label className="text-xs font-medium text-gray-500">Ordenar:</label>
         <select
+          data-tutorial="resultados-sort"
           value={sort}
           onChange={(e) => setSort(e.target.value as SortOption)}
           className="flex-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm outline-none transition focus:ring-2 focus:ring-ml-blue/20"

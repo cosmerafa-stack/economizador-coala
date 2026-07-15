@@ -20,7 +20,7 @@ export default function NotasPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <AppHeader title="Notas e Recibos" />
+      <AppHeader title="Notas e Recibos" dataTutorial="notas-nav" />
 
       <main className="flex flex-1 flex-col gap-3 px-4 py-5">
         <button

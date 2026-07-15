@@ -8,6 +8,7 @@ interface AppHeaderProps {
   showBack?: boolean;
   onBack?: () => void;
   extra?: React.ReactNode;
+  dataTutorial?: string;
 }
 
 export function AppHeader({
@@ -15,12 +16,16 @@ export function AppHeader({
   showBack = false,
   onBack,
   extra,
+  dataTutorial,
 }: AppHeaderProps) {
   const router = useRouter();
   const isBrand = title === "Economizador Coala";
 
   return (
-    <header className="app-header animate-fade-in px-3.5 py-2.5">
+    <header
+      data-tutorial={dataTutorial}
+      className="app-header animate-fade-in px-3.5 py-2.5"
+    >
       <div className="flex items-center gap-2.5">
         {showBack && (
           <button
