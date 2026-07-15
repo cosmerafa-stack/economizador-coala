@@ -186,7 +186,7 @@ export const useAppStore = create<AppState>()(
       toggleTheme: () =>
         set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
       addToCart: (item) => {
-        set((state) => ({ cart: [...state.cart, item] }));
+        set((state) => ({ cart: [item, ...state.cart] }));
         const { role, revendedorAuth, cart } = get();
         if (role === "revendedor" && revendedorAuth) {
           pushCartSnapshot(cart, revendedorAuth.token).catch(() => {});
