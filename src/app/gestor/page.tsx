@@ -6,6 +6,42 @@ import { useAppStore } from "@/lib/store";
 import { AppHeader } from "@/components/AppHeader";
 import { RevendedorAccountPublic, TempAccountPublic } from "@/lib/types";
 
+interface ErrorLogEntry {
+  id: string;
+  createdAt: string;
+  route: string;
+  message: string;
+}
+
+interface ActivityLogEntry {
+  id: string;
+  createdAt: string;
+  actor: string;
+  action: string;
+  details: Record<string, unknown> | null;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  criar_usuario_demo: "Criou usuário demo",
+  desativar_acesso_demo: "Desativou acesso demo",
+  reativar_acesso_demo: "Reativou acesso demo",
+  aumentar_tempo_demo: "Aumentou tempo de teste",
+  aprovar_cadastro: "Aprovou cadastro",
+  alterar_limite_dispositivos: "Alterou limite de dispositivos",
+  excluir_cadastro: "Excluiu cadastro",
+  alterar_trial_padrao: "Alterou trial padrão",
+};
+
+function formatActivityDetails(entry: ActivityLogEntry): string {
+  const d = entry.details ?? {};
+  const parts = Object.entries(d).map(([k, v]) => `${k}: ${v}`);
+  return parts.join(" · ");
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR");
+}
+
 function formatRemaining(remainingMs: number | null): string {
   if (remainingMs == null) return "sem expiração";
   if (remainingMs <= 0) return "expirado";
@@ -43,6 +79,12 @@ export default function GestorPage() {
   const [defaultTrialDias, setDefaultTrialDias] = useState("3");
   const [savingDefaultTrial, setSavingDefaultTrial] = useState(false);
   const [defaultTrialSaved, setDefaultTrialSaved] = useState(false);
+
+  const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([]);
+  const [errorLogsLoading, setErrorLogsLoading] = useState(true);
+  const [clearingLogs, setClearingLogs] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
+  const [activityLogsLoading, setActivityLogsLoading] = useState(true);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -98,12 +140,46 @@ export default function GestorPage() {
     }
   }
 
+  async function loadErrorLogs() {
+    setErrorLogsLoading(true);
+    try {
+      const res = await authFetch("/api/gestor/logs");
+      const data = await res.json();
+      setErrorLogs(data.logs ?? []);
+    } finally {
+      setErrorLogsLoading(false);
+    }
+  }
+
+  async function loadActivityLogs() {
+    setActivityLogsLoading(true);
+    try {
+      const res = await authFetch("/api/gestor/atividade");
+      const data = await res.json();
+      setActivityLogs(data.atividades ?? []);
+    } finally {
+      setActivityLogsLoading(false);
+    }
+  }
+
+  async function handleClearLogs() {
+    setClearingLogs(true);
+    try {
+      await authFetch("/api/gestor/logs", { method: "DELETE" });
+      await loadErrorLogs();
+    } finally {
+      setClearingLogs(false);
+    }
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard data-fetching effect triggered when role becomes available
     if (role === "gestor" && gestorToken) {
       loadUsuarios();
       loadTempUsuarios();
       loadConfig();
+      loadErrorLogs();
+      loadActivityLogs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, gestorToken]);
@@ -551,6 +627,85 @@ export default function GestorPage() {
               </div>
             );
           })
+        )}
+
+        <div className="animate-fade-slide-up mt-4 flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">
+            Log de erros
+          </h2>
+          <div className="flex items-center gap-3">
+            <button onClick={loadErrorLogs} className="text-xs font-semibold text-ml-blue">
+              Atualizar
+            </button>
+            {errorLogs.length > 0 && (
+              <button
+                onClick={handleClearLogs}
+                disabled={clearingLogs}
+                className="text-xs font-semibold text-red-500 disabled:opacity-50"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {errorLogsLoading ? (
+          <p className="text-center text-sm text-gray-400">Carregando...</p>
+        ) : errorLogs.length === 0 ? (
+          <p className="animate-fade-slide-up text-center text-sm text-gray-400">
+            Nenhum erro registrado.
+          </p>
+        ) : (
+          errorLogs.map((entry) => (
+            <div
+              key={entry.id}
+              className="animate-fade-slide-up rounded-2xl border border-red-100 bg-red-50/50 p-3 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-bold text-red-600">{entry.route}</span>
+                <span className="whitespace-nowrap text-[10px] text-gray-400">
+                  {formatDateTime(entry.createdAt)}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-700">{entry.message}</p>
+            </div>
+          ))
+        )}
+
+        <div className="animate-fade-slide-up mt-4 flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">
+            Histórico de ações
+          </h2>
+          <button onClick={loadActivityLogs} className="text-xs font-semibold text-ml-blue">
+            Atualizar
+          </button>
+        </div>
+
+        {activityLogsLoading ? (
+          <p className="text-center text-sm text-gray-400">Carregando...</p>
+        ) : activityLogs.length === 0 ? (
+          <p className="animate-fade-slide-up text-center text-sm text-gray-400">
+            Nenhuma ação registrada ainda.
+          </p>
+        ) : (
+          activityLogs.map((entry) => (
+            <div
+              key={entry.id}
+              className="animate-fade-slide-up rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-bold text-gray-800">
+                  {ACTION_LABELS[entry.action] ?? entry.action}
+                </span>
+                <span className="whitespace-nowrap text-[10px] text-gray-400">
+                  {formatDateTime(entry.createdAt)}
+                </span>
+              </div>
+              {entry.details && (
+                <p className="mt-1 text-xs text-gray-500">{formatActivityDetails(entry)}</p>
+              )}
+            </div>
+          ))
         )}
 
         <button

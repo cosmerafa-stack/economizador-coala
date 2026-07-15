@@ -2,6 +2,7 @@ import "server-only";
 import { neon } from "@neondatabase/serverless";
 import { haversineDistanceKm } from "./geo";
 import { sortResults } from "./sort";
+import { logError } from "./errorLog.server";
 import { Coordinates, PriceResult, SortOption } from "./types";
 
 const sql = neon(process.env.DATABASE_URL as string);
@@ -11,6 +12,20 @@ const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // stale cache is only used as a last-resort fallback
+const UPSTREAM_TIMEOUT_MS = 12000; // the government site has no SLA — never let a hung request block a search indefinitely
+
+// Plain fetch() has no timeout of its own; if the upstream hangs instead of
+// erroring fast, the whole search (and the user staring at "Buscando
+// preços...") would hang right along with it.
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 interface Session {
   cookie: string;
@@ -24,7 +39,7 @@ function extractCsrfToken(html: string): string | null {
 }
 
 async function bootstrapSession(): Promise<Session> {
-  const response = await fetch(BASE_URL, {
+  const response = await fetchWithTimeout(BASE_URL, {
     method: "GET",
     headers: { "User-Agent": USER_AGENT },
     cache: "no-store",
@@ -185,7 +200,7 @@ async function postSearch(
     ordenar: SORT_TO_ORDENAR[params.sort],
   });
 
-  return fetch(BASE_URL, {
+  return fetchWithTimeout(BASE_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -396,6 +411,11 @@ export async function searchPrices(
     writeHistory(params.query, results).catch(() => {});
     return { results, source: "live" };
   } catch (err) {
+    const isTimeout = err instanceof Error && err.name === "AbortError";
+    logError("precoDaHora.searchPrices", isTimeout ? new Error("Timeout ao consultar a fonte de preços") : err, {
+      query: params.query,
+    }).catch(() => {});
+
     const location: Coordinates = { lat: params.lat, lng: params.lng };
     const cached = await readCache(params.query).catch(() => null);
 

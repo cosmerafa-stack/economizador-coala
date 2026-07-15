@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchPrices } from "@/lib/precoDaHora";
 import { searchProducts, DEFAULT_LOCATION } from "@/lib/mockData";
 import { simplifySearchTerm } from "@/lib/searchTerm";
+import { logError } from "@/lib/errorLog.server";
 import { SortOption } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +58,8 @@ export async function GET(request: NextRequest) {
       sort,
     });
     return NextResponse.json(retry);
-  } catch {
+  } catch (err) {
+    logError("api/search", err, { query }).catch(() => {});
     const results = searchProducts({
       query,
       location: { lat, lng },

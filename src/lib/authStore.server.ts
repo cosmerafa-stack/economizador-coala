@@ -3,6 +3,7 @@ import { neon } from "@neondatabase/serverless";
 import bcrypt from "bcryptjs";
 import { TempAccountPublic } from "./types";
 import { getDefaultTrialHours } from "./appSettings.server";
+import { logActivity } from "./activityLog.server";
 
 const sql = neon(process.env.DATABASE_URL as string);
 
@@ -316,6 +317,7 @@ export async function createTempAccount(input: {
     [username, telefone, username, passwordHash, expiresAt.toISOString(), contactEmail]
   );
 
+  logActivity("criar_usuario_demo", { username, trialHours }).catch(() => {});
   return { ok: true, username };
 }
 
@@ -345,17 +347,19 @@ export async function listTempAccounts(): Promise<TempAccountPublic[]> {
 
 export async function disableAccount(id: string): Promise<boolean> {
   const result = (await sql.query(
-    "update revendedor_accounts set disabled_at = now() where id = $1 and is_temp = true returning id",
+    "update revendedor_accounts set disabled_at = now() where id = $1 and is_temp = true returning email",
     [id]
-  )) as { id: string }[];
+  )) as { email: string }[];
+  if (result.length > 0) logActivity("desativar_acesso_demo", { username: result[0].email }).catch(() => {});
   return result.length > 0;
 }
 
 export async function enableAccount(id: string): Promise<boolean> {
   const result = (await sql.query(
-    "update revendedor_accounts set disabled_at = null where id = $1 and is_temp = true returning id",
+    "update revendedor_accounts set disabled_at = null where id = $1 and is_temp = true returning email",
     [id]
-  )) as { id: string }[];
+  )) as { email: string }[];
+  if (result.length > 0) logActivity("reativar_acesso_demo", { username: result[0].email }).catch(() => {});
   return result.length > 0;
 }
 
@@ -364,9 +368,9 @@ export async function enableAccount(id: string): Promise<boolean> {
 // silently throw away a still-valid remainder.
 export async function extendExpiration(id: string, extraHours: number): Promise<boolean> {
   const accounts = (await sql.query(
-    "select expires_at from revendedor_accounts where id = $1 and is_temp = true",
+    "select email, expires_at from revendedor_accounts where id = $1 and is_temp = true",
     [id]
-  )) as { expires_at: string | null }[];
+  )) as { email: string; expires_at: string | null }[];
   const account = accounts[0];
   if (!account) return false;
 
@@ -379,6 +383,9 @@ export async function extendExpiration(id: string, extraHours: number): Promise<
     "update revendedor_accounts set expires_at = $1 where id = $2 returning id",
     [newExpiresAt.toISOString(), id]
   )) as { id: string }[];
+  if (result.length > 0) {
+    logActivity("aumentar_tempo_demo", { username: account.email, extraHours }).catch(() => {});
+  }
   return result.length > 0;
 }
 
@@ -409,25 +416,30 @@ export async function markTutorialPromptShown(accountId: string): Promise<boolea
 
 export async function approveAccount(id: string): Promise<boolean> {
   const result = (await sql.query(
-    "update revendedor_accounts set approved = true where id = $1 returning id",
+    "update revendedor_accounts set approved = true where id = $1 returning email",
     [id]
-  )) as { id: string }[];
+  )) as { email: string }[];
+  if (result.length > 0) logActivity("aprovar_cadastro", { email: result[0].email }).catch(() => {});
   return result.length > 0;
 }
 
 export async function setMaxDevices(id: string, maxDevices: number): Promise<boolean> {
   const value = Math.max(1, Math.floor(maxDevices));
   const result = (await sql.query(
-    "update revendedor_accounts set max_devices = $1 where id = $2 returning id",
+    "update revendedor_accounts set max_devices = $1 where id = $2 returning email",
     [value, id]
-  )) as { id: string }[];
+  )) as { email: string }[];
+  if (result.length > 0) {
+    logActivity("alterar_limite_dispositivos", { email: result[0].email, maxDevices: value }).catch(() => {});
+  }
   return result.length > 0;
 }
 
 export async function removeAccount(id: string): Promise<boolean> {
   const result = (await sql.query(
-    "delete from revendedor_accounts where id = $1 returning id",
+    "delete from revendedor_accounts where id = $1 returning email",
     [id]
-  )) as { id: string }[];
+  )) as { email: string }[];
+  if (result.length > 0) logActivity("excluir_cadastro", { email: result[0].email }).catch(() => {});
   return result.length > 0;
 }

@@ -79,6 +79,14 @@ function ResultadosContent() {
     }
 
     const controller = new AbortController();
+    // Belt-and-suspenders: the server already times out its own upstream
+    // calls, but if that ever regresses (or the server itself hangs), this
+    // keeps the UI from getting stuck on "Buscando preços..." forever.
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 25000);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting loading/error state when the fetch key (query/location/radius) changes is the standard data-fetching effect pattern
     setLoading(true);
     setErrored(false);
@@ -113,14 +121,18 @@ function ResultadosContent() {
         }
       })
       .catch((err) => {
-        if (err.name !== "AbortError") setErrored(true);
+        if (err.name !== "AbortError" || timedOut) setErrored(true);
       })
       .finally(() => {
+        clearTimeout(timeoutId);
         setLoading(false);
         setResultsQuery(query);
       });
 
-    return () => controller.abort();
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- lastResultados is read but intentionally excluded so an in-flight fetch's own completion doesn't retrigger this effect
   }, [query, location, sort, searchRadiusKm, setLastSearchQuery, addRecentSearch, setLastResultados]);
 

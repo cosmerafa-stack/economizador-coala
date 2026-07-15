@@ -12,6 +12,29 @@ create table if not exists rate_limit_buckets (
   reset_at timestamptz not null
 );
 
+-- Server-side errors worth the gestor knowing about (e.g. the price
+-- source failing/timing out) — surfaced in the área do gestor.
+create table if not exists error_log (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  route text not null,
+  message text not null,
+  stack text,
+  context jsonb
+);
+create index if not exists error_log_created_at_idx on error_log (created_at desc);
+
+-- Audit trail of gestor actions (approve, create/disable/extend demo
+-- users, config changes, etc.) — also surfaced in the área do gestor.
+create table if not exists activity_log (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  actor text not null default 'gestor',
+  action text not null,
+  details jsonb
+);
+create index if not exists activity_log_created_at_idx on activity_log (created_at desc);
+
 create table if not exists revendedor_accounts (
   id uuid primary key default gen_random_uuid(),
   nome text not null,
