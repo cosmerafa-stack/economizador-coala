@@ -6,6 +6,7 @@ import { FontSizeSync } from "@/components/FontSizeSync";
 import { SessionHeartbeat } from "@/components/SessionHeartbeat";
 import { InstallBanner } from "@/components/InstallBanner";
 import { WelcomeModal } from "@/components/WelcomeModal";
+import { AutoTutorialPrompt } from "@/components/AutoTutorialPrompt";
 import { HelpButton } from "@/components/HelpButton";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import "./globals.css";
@@ -72,6 +73,7 @@ export default function RootLayout({
           <AnimatedBackground />
           <InstallBanner />
           <WelcomeModal />
+          <AutoTutorialPrompt />
           <HelpButton />
           <TutorialOverlay />
           {children}

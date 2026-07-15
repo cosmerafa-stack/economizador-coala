@@ -27,6 +27,7 @@ export default function LoginPage() {
     isTemp: boolean;
     expiresAt: string | null;
     welcomeShown: boolean;
+    tutorialPromptShown: boolean;
   }) {
     setRevendedorAuth({
       token: data.token,
@@ -34,6 +35,7 @@ export default function LoginPage() {
       isTemp: data.isTemp,
       expiresAt: data.expiresAt,
       welcomeShown: data.welcomeShown,
+      tutorialPromptShown: data.tutorialPromptShown,
     });
 
     if (data.mustChangePassword) {

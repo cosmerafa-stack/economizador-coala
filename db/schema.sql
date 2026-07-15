@@ -35,7 +35,11 @@ create table if not exists revendedor_accounts (
   expires_at timestamptz,
   disabled_at timestamptz,
   must_change_password boolean not null default false,
-  welcome_shown boolean not null default false
+  welcome_shown boolean not null default false,
+  -- Auto-shown "want a guided tutorial?" prompt on the very first login,
+  -- for every revendedor (temp or permanent) — not just demo accounts.
+  -- After that, it's only reachable via the "?" help button.
+  tutorial_prompt_shown boolean not null default false
 );
 
 -- Small global key/value config store, e.g. the gestor-configurable

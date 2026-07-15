@@ -25,6 +25,7 @@ interface AccountRow {
   disabled_at: string | null;
   must_change_password: boolean;
   welcome_shown: boolean;
+  tutorial_prompt_shown: boolean;
 }
 
 interface SessionRow {
@@ -103,6 +104,7 @@ export interface LoginSuccess {
   isTemp: boolean;
   expiresAt: string | null;
   welcomeShown: boolean;
+  tutorialPromptShown: boolean;
 }
 
 async function createSessionForApprovedAccount(
@@ -153,6 +155,7 @@ async function createSessionForApprovedAccount(
     isTemp: account.is_temp,
     expiresAt: account.expires_at,
     welcomeShown: account.welcome_shown,
+    tutorialPromptShown: account.tutorial_prompt_shown,
   };
 }
 
@@ -384,6 +387,14 @@ export async function changePassword(accountId: string, newPassword: string): Pr
 export async function markWelcomeShown(accountId: string): Promise<boolean> {
   const result = (await sql.query(
     "update revendedor_accounts set welcome_shown = true where id = $1 returning id",
+    [accountId]
+  )) as { id: string }[];
+  return result.length > 0;
+}
+
+export async function markTutorialPromptShown(accountId: string): Promise<boolean> {
+  const result = (await sql.query(
+    "update revendedor_accounts set tutorial_prompt_shown = true where id = $1 returning id",
     [accountId]
   )) as { id: string }[];
   return result.length > 0;

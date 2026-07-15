@@ -33,6 +33,7 @@ export interface RevendedorAuth {
   isTemp?: boolean;
   expiresAt?: string | null;
   welcomeShown?: boolean;
+  tutorialPromptShown?: boolean;
 }
 
 export interface CachedResultados {
