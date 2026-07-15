@@ -1,9 +1,13 @@
 import "server-only";
-import { PhotonImage, SamplingFilter, resize } from "@cf-wasm/photon";
+import jpeg from "jpeg-js";
 
 const MAX_DIMENSION = 500;
 const JPEG_QUALITY = 80;
-const MAX_SOURCE_BYTES = 8 * 1024 * 1024; // Workers memory cap guard
+const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
+
+function isJpeg(bytes: Uint8Array): boolean {
+  return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -14,9 +18,53 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// Fetches an external image and re-encodes it as a small JPEG data URL, so
-// every source (Open Food Facts, Open Products Facts, Cosmos) ends up the
-// same reasonable size regardless of how big the original was.
+// Nearest-neighbor downscale over the raw RGBA buffer jpeg-js decodes to.
+// Cloudflare Workers doesn't allow compiling WASM from runtime-fetched bytes
+// ("Wasm code generation disallowed by embedder"), which rules out
+// WASM-based resizers (e.g. @cf-wasm/photon) here — jpeg-js is pure JS, so
+// it just works, at the cost of a less sophisticated resize filter.
+function downscale(data: Buffer, width: number, height: number, targetWidth: number, targetHeight: number): Buffer {
+  const out = Buffer.alloc(targetWidth * targetHeight * 4);
+  for (let y = 0; y < targetHeight; y++) {
+    const srcY = Math.min(height - 1, Math.floor((y * height) / targetHeight));
+    for (let x = 0; x < targetWidth; x++) {
+      const srcX = Math.min(width - 1, Math.floor((x * width) / targetWidth));
+      const srcIdx = (srcY * width + srcX) * 4;
+      const dstIdx = (y * targetWidth + x) * 4;
+      out[dstIdx] = data[srcIdx];
+      out[dstIdx + 1] = data[srcIdx + 1];
+      out[dstIdx + 2] = data[srcIdx + 2];
+      out[dstIdx + 3] = data[srcIdx + 3];
+    }
+  }
+  return out;
+}
+
+function compressJpeg(bytes: Uint8Array): string | null {
+  try {
+    const decoded = jpeg.decode(bytes, { maxResolutionInMP: 50 });
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(decoded.width, decoded.height));
+    const targetWidth = Math.max(1, Math.round(decoded.width * scale));
+    const targetHeight = Math.max(1, Math.round(decoded.height * scale));
+
+    const pixelData =
+      scale < 1
+        ? downscale(decoded.data as Buffer, decoded.width, decoded.height, targetWidth, targetHeight)
+        : (decoded.data as Buffer);
+
+    const encoded = jpeg.encode(
+      { data: pixelData, width: targetWidth, height: targetHeight },
+      JPEG_QUALITY
+    );
+    return `data:image/jpeg;base64,${uint8ArrayToBase64(encoded.data)}`;
+  } catch {
+    return null;
+  }
+}
+
+// Fetches an external image and, when it's a JPEG (true for every source we
+// use), re-encodes it smaller. Non-JPEG bytes are stored as-is rather than
+// dropped — still correct, just without the size reduction.
 export async function fetchAndCompressImage(
   url: string,
   fetchOptions?: RequestInit
@@ -31,28 +79,14 @@ export async function fetchAndCompressImage(
     const buffer = await res.arrayBuffer();
     if (buffer.byteLength > MAX_SOURCE_BYTES) return null;
 
-    const inputImage = PhotonImage.new_from_byteslice(new Uint8Array(buffer));
-    const width = inputImage.get_width();
-    const height = inputImage.get_height();
-    const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+    const bytes = new Uint8Array(buffer);
+    if (isJpeg(bytes)) {
+      const compressed = compressJpeg(bytes);
+      if (compressed) return compressed;
+    }
 
-    const outputImage =
-      scale < 1
-        ? resize(
-            inputImage,
-            Math.round(width * scale),
-            Math.round(height * scale),
-            SamplingFilter.Lanczos3
-          )
-        : inputImage;
-
-    const jpegBytes = outputImage.get_bytes_jpeg(JPEG_QUALITY);
-    const base64 = uint8ArrayToBase64(jpegBytes);
-
-    inputImage.free();
-    if (outputImage !== inputImage) outputImage.free();
-
-    return `data:image/jpeg;base64,${base64}`;
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    return `data:${contentType};base64,${uint8ArrayToBase64(bytes)}`;
   } catch {
     return null;
   }
