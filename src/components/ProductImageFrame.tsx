@@ -7,31 +7,46 @@ interface ProductImageFrameProps {
 }
 
 // Module-level cache so the same barcode (common across nearby stores) isn't
-// re-fetched from Open Food Facts every time a result card mounts.
+// re-fetched every time a result card mounts.
 const imageCache = new Map<string, string | null>();
 
-async function fetchProductImage(barcode: string): Promise<string | null> {
-  if (imageCache.has(barcode)) return imageCache.get(barcode) ?? null;
+// NFCe covers every kind of retail product, not just food, so Open Food
+// Facts alone (great coverage for groceries) misses a lot. Open Products
+// Facts is the same project's sister database for everything else — same
+// free, keyless API shape, tried second since its catalog is much smaller.
+const IMAGE_SOURCES = [
+  "https://world.openfoodfacts.org/api/v2/product",
+  "https://world.openproductsfacts.org/api/v2/product",
+];
 
+async function fetchFromSource(source: string, barcode: string): Promise<string | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
   try {
     const res = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=image_front_small_url,image_url`,
+      `${source}/${encodeURIComponent(barcode)}.json?fields=image_front_small_url,image_url`,
       { signal: controller.signal }
     );
-    if (!res.ok) throw new Error("not ok");
+    if (!res.ok) return null;
     const data = await res.json();
-    const url: string | null =
-      data?.product?.image_front_small_url ?? data?.product?.image_url ?? null;
-    imageCache.set(barcode, url);
-    return url;
+    return data?.product?.image_front_small_url ?? data?.product?.image_url ?? null;
   } catch {
-    imageCache.set(barcode, null);
     return null;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchProductImage(barcode: string): Promise<string | null> {
+  if (imageCache.has(barcode)) return imageCache.get(barcode) ?? null;
+
+  let url: string | null = null;
+  for (const source of IMAGE_SOURCES) {
+    url = await fetchFromSource(source, barcode);
+    if (url) break;
+  }
+  imageCache.set(barcode, url);
+  return url;
 }
 
 export function ProductImageFrame({ barcode }: ProductImageFrameProps) {
