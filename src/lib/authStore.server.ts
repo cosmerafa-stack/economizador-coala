@@ -26,6 +26,7 @@ interface AccountRow {
   must_change_password: boolean;
   welcome_shown: boolean;
   tutorial_prompt_shown: boolean;
+  contact_email: string | null;
 }
 
 interface SessionRow {
@@ -286,6 +287,8 @@ function usernameToEmail(username: string): string {
 export async function createTempAccount(input: {
   username: string;
   trialHours?: number;
+  contactEmail?: string;
+  telefone?: string;
 }): Promise<{ ok: true; username: string } | { ok: false; message: string }> {
   const username = usernameToEmail(input.username);
   if (!username) {
@@ -303,12 +306,14 @@ export async function createTempAccount(input: {
   const trialHours = input.trialHours ?? (await getDefaultTrialHours());
   const passwordHash = await bcrypt.hash("123", 10);
   const expiresAt = new Date(Date.now() + trialHours * 60 * 60 * 1000);
+  const contactEmail = input.contactEmail?.trim() || null;
+  const telefone = input.telefone?.trim() || "";
 
   await sql.query(
     `insert into revendedor_accounts
-       (nome, sobrenome, telefone, email, password_hash, approved, is_temp, expires_at, must_change_password)
-     values ($1, '', '', $2, $3, true, true, $4, true)`,
-    [username, username, passwordHash, expiresAt.toISOString()]
+       (nome, sobrenome, telefone, email, password_hash, approved, is_temp, expires_at, must_change_password, contact_email)
+     values ($1, '', $2, $3, $4, true, true, $5, true, $6)`,
+    [username, telefone, username, passwordHash, expiresAt.toISOString(), contactEmail]
   );
 
   return { ok: true, username };
@@ -326,6 +331,8 @@ function toTempPublic(account: AccountRow): TempAccountPublic {
     disabled: Boolean(account.disabled_at),
     mustChangePassword: account.must_change_password,
     remainingMs,
+    contactEmail: account.contact_email,
+    telefone: account.telefone || null,
   };
 }
 

@@ -103,6 +103,8 @@ export interface TempAccountPublic {
   disabled: boolean;
   mustChangePassword: boolean;
   remainingMs: number | null;
+  contactEmail: string | null;
+  telefone: string | null;
 }
 
 // ===================== Área Beta (experimental) =====================

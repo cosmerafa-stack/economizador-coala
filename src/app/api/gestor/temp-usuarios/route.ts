@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
     typeof body?.trialHours === "number" && Number.isFinite(body.trialHours)
       ? body.trialHours
       : undefined;
+  const contactEmail = typeof body?.contactEmail === "string" ? body.contactEmail : undefined;
+  const telefone = typeof body?.telefone === "string" ? body.telefone : undefined;
 
   if (!username.trim()) {
     return NextResponse.json(
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await createTempAccount({ username, trialHours });
+  const result = await createTempAccount({ username, trialHours, contactEmail, telefone });
   if (!result.ok) {
     return NextResponse.json(result, { status: 409 });
   }

@@ -35,6 +35,8 @@ export default function GestorPage() {
   const [tempPendingIds, setTempPendingIds] = useState<Set<string>>(new Set());
   const [novoUsername, setNovoUsername] = useState("");
   const [novoTrialDias, setNovoTrialDias] = useState("");
+  const [novoContactEmail, setNovoContactEmail] = useState("");
+  const [novoTelefone, setNovoTelefone] = useState("");
   const [criandoTemp, setCriandoTemp] = useState(false);
   const [criarTempError, setCriarTempError] = useState<string | null>(null);
   const [extendDrafts, setExtendDrafts] = useState<Record<string, string>>({});
@@ -123,12 +125,19 @@ export default function GestorPage() {
     setCriarTempError(null);
     try {
       const trialDias = Number(novoTrialDias);
-      const body: { username: string; trialHours?: number } = {
+      const body: {
+        username: string;
+        trialHours?: number;
+        contactEmail?: string;
+        telefone?: string;
+      } = {
         username: novoUsername.trim(),
       };
       if (novoTrialDias.trim() && Number.isFinite(trialDias) && trialDias > 0) {
         body.trialHours = trialDias * 24;
       }
+      if (novoContactEmail.trim()) body.contactEmail = novoContactEmail.trim();
+      if (novoTelefone.trim()) body.telefone = novoTelefone.trim();
       const res = await authFetch("/api/gestor/temp-usuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,6 +150,8 @@ export default function GestorPage() {
       }
       setNovoUsername("");
       setNovoTrialDias("");
+      setNovoContactEmail("");
+      setNovoTelefone("");
       await loadTempUsuarios();
     } finally {
       setCriandoTemp(false);
@@ -399,8 +410,10 @@ export default function GestorPage() {
             Criar novo usuário de demonstração
           </label>
           <p className="mb-2 text-xs text-gray-400">
-            Sem e-mail — ex.: marinalva, mercearia.santiago. Senha inicial:{" "}
-            <strong>123</strong> (trocada no primeiro acesso).
+            Não precisa de e-mail pra acessar — ex.: marinalva,
+            mercearia.santiago. Senha inicial: <strong>123</strong> (trocada
+            no primeiro acesso). E-mail e WhatsApp abaixo são só pra
+            referência, opcionais.
           </p>
           <div className="flex flex-col gap-2">
             <input
@@ -408,6 +421,20 @@ export default function GestorPage() {
               placeholder="nome de usuário"
               value={novoUsername}
               onChange={(e) => setNovoUsername(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+            <input
+              type="email"
+              placeholder="e-mail (opcional)"
+              value={novoContactEmail}
+              onChange={(e) => setNovoContactEmail(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+            <input
+              type="tel"
+              placeholder="WhatsApp com DDD (opcional)"
+              value={novoTelefone}
+              onChange={(e) => setNovoTelefone(e.target.value)}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
             <div className="flex items-center gap-2">
@@ -456,6 +483,11 @@ export default function GestorPage() {
                     <p className="text-xs text-gray-400">
                       criado em {new Date(u.createdAt).toLocaleDateString("pt-BR")}
                     </p>
+                    {(u.contactEmail || u.telefone) && (
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {[u.contactEmail, u.telefone].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold ${

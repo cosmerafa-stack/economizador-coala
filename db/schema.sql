@@ -39,7 +39,10 @@ create table if not exists revendedor_accounts (
   -- Auto-shown "want a guided tutorial?" prompt on the very first login,
   -- for every revendedor (temp or permanent) — not just demo accounts.
   -- After that, it's only reachable via the "?" help button.
-  tutorial_prompt_shown boolean not null default false
+  tutorial_prompt_shown boolean not null default false,
+  -- Optional real contact e-mail for temp/demo accounts (the `email`
+  -- column above holds the login username for those, not a real address).
+  contact_email text
 );
 
 -- Small global key/value config store, e.g. the gestor-configurable
