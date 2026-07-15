@@ -57,11 +57,20 @@ export function TutorialOverlay() {
 
   const isLast = tutorialStep === TUTORIAL_STEPS.length - 1;
 
+  // The tooltip and the pointer always go on opposite sides of the
+  // highlighted element, so the pointer never covers the instructions.
+  const tooltipBelow = rect ? rect.bottom + PADDING + 140 < window.innerHeight : true;
   const tooltipTop = rect
-    ? rect.bottom + PADDING + 140 < window.innerHeight
+    ? tooltipBelow
       ? rect.bottom + PADDING + 12
       : Math.max(12, rect.top - PADDING - 170)
     : null;
+  const pointerTop = rect
+    ? tooltipBelow
+      ? Math.max(4, rect.top - PADDING - 40)
+      : rect.bottom + PADDING + 4
+    : null;
+  const pointerEmoji = tooltipBelow ? "👇" : "👆";
 
   return (
     <div className="fixed inset-0 z-[100]">
@@ -80,12 +89,12 @@ export function TutorialOverlay() {
           <div
             className="pointer-events-none absolute animate-bounce text-3xl drop-shadow-lg"
             style={{
-              top: rect.bottom + PADDING + 2,
+              top: pointerTop ?? undefined,
               left: rect.left + rect.width / 2 - 16,
             }}
             aria-hidden
           >
-            👆
+            {pointerEmoji}
           </div>
         </>
       ) : (
