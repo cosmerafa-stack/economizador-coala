@@ -40,7 +40,7 @@ export function ProductResultCard({
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       {showProductImage ? (
         <div className="flex gap-3">
-          <ProductImageFrame barcode={result.barcode} />
+          <ProductImageFrame barcode={result.barcode} productName={result.productName} />
           {header}
         </div>
       ) : (

@@ -4,55 +4,34 @@ import { useEffect, useState } from "react";
 
 interface ProductImageFrameProps {
   barcode: string | null;
+  productName?: string;
 }
 
-// Module-level cache so the same barcode (common across nearby stores) isn't
-// re-fetched every time a result card mounts.
+// Module-level cache so the same barcode (common across nearby stores)
+// isn't re-fetched every time a result card mounts — the server itself
+// already caches per-barcode in Postgres, this just saves the round trip
+// within the same page session.
 const imageCache = new Map<string, string | null>();
-
-// NFCe covers every kind of retail product, not just food, so Open Food
-// Facts alone (great coverage for groceries) misses a lot. Open Products
-// Facts is the same project's sister database for everything else — same
-// free, keyless API shape, tried second since its catalog is much smaller.
-const IMAGE_SOURCES = [
-  "https://world.openfoodfacts.org/api/v2/product",
-  "https://world.openproductsfacts.org/api/v2/product",
-];
-
-async function fetchFromSource(source: string, barcode: string): Promise<string | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
-  try {
-    const res = await fetch(
-      `${source}/${encodeURIComponent(barcode)}.json?fields=image_front_small_url,image_url`,
-      { signal: controller.signal }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.product?.image_front_small_url ?? data?.product?.image_url ?? null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 async function fetchProductImage(barcode: string): Promise<string | null> {
   if (imageCache.has(barcode)) return imageCache.get(barcode) ?? null;
 
-  let url: string | null = null;
-  for (const source of IMAGE_SOURCES) {
-    url = await fetchFromSource(source, barcode);
-    if (url) break;
+  try {
+    const res = await fetch(`/api/produto-imagem?barcode=${encodeURIComponent(barcode)}`);
+    const data = await res.json();
+    const url: string | null = data?.imageData ?? null;
+    imageCache.set(barcode, url);
+    return url;
+  } catch {
+    return null;
   }
-  imageCache.set(barcode, url);
-  return url;
 }
 
-export function ProductImageFrame({ barcode }: ProductImageFrameProps) {
+export function ProductImageFrame({ barcode, productName }: ProductImageFrameProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(
     barcode ? imageCache.get(barcode) ?? null : null
   );
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   useEffect(() => {
     if (!barcode) {
@@ -69,21 +48,80 @@ export function ProductImageFrame({ barcode }: ProductImageFrameProps) {
   }, [barcode]);
 
   return (
-    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- external, unpredictable domain per product; not worth next/image's remotePatterns config for a best-effort thumbnail
+    <>
+      <button
+        type="button"
+        onClick={() => imageUrl && setZoomOpen(true)}
+        disabled={!imageUrl}
+        aria-label={imageUrl ? "Ampliar imagem do produto" : undefined}
+        className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-gray-50"
+      >
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- data URL, not a static/remote asset next/image can optimize
+          <img
+            src={imageUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+            onError={() => setImageUrl(null)}
+          />
+        ) : (
+          <span className="px-1 text-center text-[9px] leading-tight text-gray-400">
+            Sem imagem
+          </span>
+        )}
+      </button>
+
+      {zoomOpen && imageUrl && (
+        <ProductImageZoomModal
+          imageUrl={imageUrl}
+          productName={productName}
+          onClose={() => setZoomOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function ProductImageZoomModal({
+  imageUrl,
+  productName,
+  onClose,
+}: {
+  imageUrl: string;
+  productName?: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-full max-w-full flex-col items-center gap-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <img
           src={imageUrl}
-          alt=""
-          loading="lazy"
-          className="h-full w-full object-cover"
-          onError={() => setImageUrl(null)}
+          alt={productName ?? ""}
+          className="max-h-[70vh] max-w-full rounded-2xl object-contain shadow-2xl"
         />
-      ) : (
-        <span className="px-1 text-center text-[9px] leading-tight text-gray-400">
-          Sem imagem
-        </span>
-      )}
+        <div className="flex gap-3">
+          <a
+            href={imageUrl}
+            download={`produto-${Date.now()}.jpg`}
+            className="rounded-xl bg-ml-blue px-4 py-2 text-sm font-bold text-white shadow-sm active:scale-95"
+          >
+            Salvar imagem
+          </a>
+          <button
+            onClick={onClose}
+            className="rounded-xl bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm active:scale-95"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

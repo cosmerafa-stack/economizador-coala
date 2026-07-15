@@ -14,9 +14,12 @@ const csp = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline' https://accounts.google.com${isDev ? " 'unsafe-eval'" : ""}`,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: https://*.openfoodfacts.org https://*.openproductsfacts.org`,
+  // Product thumbnails (Open Food Facts / Open Products Facts / Cosmos) are
+  // fetched and compressed server-side now (src/app/api/produto-imagem),
+  // so the browser only ever loads them as same-origin data: URLs.
+  `img-src 'self' data:`,
   `font-src 'self' data:`,
-  `connect-src 'self' https://accounts.google.com https://*.openfoodfacts.org https://*.openproductsfacts.org${isDev ? " ws:" : ""}`,
+  `connect-src 'self' https://accounts.google.com${isDev ? " ws:" : ""}`,
   `frame-src https://accounts.google.com`,
   `frame-ancestors 'none'`,
   `object-src 'none'`,

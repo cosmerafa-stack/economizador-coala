@@ -187,3 +187,14 @@ create table if not exists revendedor_settings (
   search_radius_km integer not null default 25,
   updated_at timestamptz not null default now()
 );
+
+-- Product thumbnails looked up by barcode (Open Food Facts / Open Products
+-- Facts / Cosmos Bluesoft, in that order). Keyed by barcode so once any
+-- user's search resolves an image, every other user searching the same
+-- EAN gets it straight from here — no repeat external lookups.
+create table if not exists product_images (
+  barcode text primary key,
+  image_data text not null,
+  source text not null,
+  created_at timestamptz not null default now()
+);
