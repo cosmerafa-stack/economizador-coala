@@ -12,6 +12,7 @@ import { nearestNeighborOrder, googleMapsRouteUrl } from "@/lib/route";
 import { useGoToSearch } from "@/lib/useGoToSearch";
 import { StoreContactButton } from "@/components/StoreContactButton";
 import { CartItem, Store } from "@/lib/types";
+import { TUTORIAL_DEMO_CART } from "@/lib/tutorialSteps";
 
 const UNDO_TIMEOUT_MS = 6000;
 
@@ -19,7 +20,12 @@ export default function CarrinhoPage() {
   const router = useRouter();
   const role = useAppStore((s) => s.role);
   const hasHydrated = useAppStore((s) => s.hasHydrated);
-  const cart = useAppStore((s) => s.cart);
+  const realCart = useAppStore((s) => s.cart);
+  const tutorialActive = useAppStore((s) => s.tutorialActive);
+  // Two example products shown only during the guided tutorial, so the
+  // WhatsApp-contact and smart-route steps have something real to point at
+  // without touching (or syncing to the server) the user's actual cart.
+  const cart = tutorialActive ? TUTORIAL_DEMO_CART : realCart;
   const location = useAppStore((s) => s.location);
   const removeFromCart = useAppStore((s) => s.removeFromCart);
   const updateCartItemQuantity = useAppStore((s) => s.updateCartItemQuantity);
@@ -81,7 +87,7 @@ export default function CarrinhoPage() {
   }, [cart]);
 
   function handleLimparCarrinho() {
-    if (cart.length === 0) return;
+    if (tutorialActive || cart.length === 0) return;
     if (window.confirm("Tem certeza que deseja remover todos os itens do carrinho?")) {
       clearCart();
     }
@@ -147,6 +153,7 @@ export default function CarrinhoPage() {
 
         {stopStores.length > 0 && (
           <button
+            data-tutorial="carrinho-rota"
             onClick={handleTracarRota}
             disabled={tracandoRota}
             className="animate-fade-slide-up flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-ml-blue to-ml-blue-dark px-4 py-3.5 text-left text-white shadow-sm transition-transform active:scale-[0.98] disabled:opacity-70"
@@ -218,6 +225,7 @@ export default function CarrinhoPage() {
                   store={item.priceResult.store}
                   productName={item.priceResult.productName}
                   price={item.priceResult.price}
+                  dataTutorial={index === 0 ? "carrinho-whatsapp" : undefined}
                 />
               </div>
 

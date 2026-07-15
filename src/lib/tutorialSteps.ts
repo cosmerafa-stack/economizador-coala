@@ -1,3 +1,5 @@
+import { CartItem } from "./types";
+
 export interface TutorialStep {
   id: string;
   route: string;
@@ -37,7 +39,19 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "carrinho-nav",
     route: "/carrinho",
     title: "Carrinho de revenda",
-    text: "Aqui ficam os produtos que você adicionou, com o cálculo automático de preço de revenda e lucro.",
+    text: "Aqui ficam os produtos que você adicionou, com o cálculo automático de preço de revenda e lucro. Veja dois produtos de exemplo, só para este tutorial.",
+  },
+  {
+    id: "carrinho-whatsapp",
+    route: "/carrinho",
+    title: "Falar com a loja",
+    text: "Toque aqui para abrir o WhatsApp da loja já com uma mensagem pronta perguntando sobre o produto.",
+  },
+  {
+    id: "carrinho-rota",
+    route: "/carrinho",
+    title: "Rota inteligente",
+    text: "Com mais de uma loja no carrinho, o app traça a rota mais eficiente entre elas a partir da sua localização.",
   },
   {
     id: "notas-nav",
@@ -56,5 +70,59 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     route: "/configuracoes",
     title: "Deixe do seu jeito",
     text: "Ajuste o tamanho da letra, ative notificações, mostre imagens dos produtos e defina uma faixa de preço.",
+  },
+];
+
+// Shown in the cart only while the tutorial is active, so the WhatsApp
+// contact and smart-route steps have something real to demonstrate without
+// touching (or syncing to the server) the user's actual cart.
+export const TUTORIAL_DEMO_CART: CartItem[] = [
+  {
+    id: "tutorial-demo-1",
+    priceResult: {
+      id: "tutorial-demo-result-1",
+      productName: "Arroz Tio João 5kg",
+      barcode: "7896006701004",
+      price: 22.9,
+      store: {
+        id: "tutorial-demo-store-1",
+        name: "Mercado Central Salvador",
+        address: "Av. Sete de Setembro, 1000 - Centro",
+        city: "Salvador",
+        phone: "71991234567",
+        coordinates: { lat: -12.9714, lng: -38.5014 },
+      },
+      emittedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      distanceKm: 1.8,
+    },
+    profitPercent: 30,
+    resalePrice: 29.77,
+    grossProfit: 6.87,
+    quantity: 2,
+    addedAt: new Date().toISOString(),
+  },
+  {
+    id: "tutorial-demo-2",
+    priceResult: {
+      id: "tutorial-demo-result-2",
+      productName: "Óleo de Soja Liza 900ml",
+      barcode: "7891107100930",
+      price: 6.49,
+      store: {
+        id: "tutorial-demo-store-2",
+        name: "Supermercado Boa Compra",
+        address: "Rua Chile, 250 - Comércio",
+        city: "Salvador",
+        phone: "71998765432",
+        coordinates: { lat: -12.9789, lng: -38.5108 },
+      },
+      emittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      distanceKm: 3.2,
+    },
+    profitPercent: 25,
+    resalePrice: 8.11,
+    grossProfit: 1.62,
+    quantity: 3,
+    addedAt: new Date().toISOString(),
   },
 ];

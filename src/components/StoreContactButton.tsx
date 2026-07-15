@@ -8,11 +8,21 @@ interface StoreContactButtonProps {
   store: Store;
   productName: string;
   price: number;
+  dataTutorial?: string;
 }
 
-function ContactLink({ link, confirmed }: { link: string; confirmed: boolean }) {
+function ContactLink({
+  link,
+  confirmed,
+  dataTutorial,
+}: {
+  link: string;
+  confirmed: boolean;
+  dataTutorial?: string;
+}) {
   return (
     <a
+      data-tutorial={dataTutorial}
       href={link}
       target="_blank"
       rel="noopener noreferrer"
@@ -30,7 +40,12 @@ function ContactLink({ link, confirmed }: { link: string; confirmed: boolean }) 
   );
 }
 
-export function StoreContactButton({ store, productName, price }: StoreContactButtonProps) {
+export function StoreContactButton({
+  store,
+  productName,
+  price,
+  dataTutorial,
+}: StoreContactButtonProps) {
   const message = buildStoreInquiryMessage(productName, price);
   const directLink = store.phone ? buildWhatsAppLink(store.phone, message) : null;
 
@@ -39,11 +54,11 @@ export function StoreContactButton({ store, productName, price }: StoreContactBu
   const [found, setFound] = useState<{ link: string; confirmed: boolean } | null>(null);
 
   if (directLink) {
-    return <ContactLink link={directLink} confirmed={false} />;
+    return <ContactLink link={directLink} confirmed={false} dataTutorial={dataTutorial} />;
   }
 
   if (found) {
-    return <ContactLink link={found.link} confirmed={found.confirmed} />;
+    return <ContactLink link={found.link} confirmed={found.confirmed} dataTutorial={dataTutorial} />;
   }
 
   if (notFound) {

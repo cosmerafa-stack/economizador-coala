@@ -66,16 +66,28 @@ export function TutorialOverlay() {
   return (
     <div className="fixed inset-0 z-[100]">
       {rect ? (
-        <div
-          className="pointer-events-none absolute rounded-xl transition-all duration-200"
-          style={{
-            top: rect.top - PADDING,
-            left: rect.left - PADDING,
-            width: rect.width + PADDING * 2,
-            height: rect.height + PADDING * 2,
-            boxShadow: "0 0 0 9999px rgba(0,0,0,0.65)",
-          }}
-        />
+        <>
+          <div
+            className="pointer-events-none absolute rounded-xl transition-all duration-200"
+            style={{
+              top: rect.top - PADDING,
+              left: rect.left - PADDING,
+              width: rect.width + PADDING * 2,
+              height: rect.height + PADDING * 2,
+              boxShadow: "0 0 0 9999px rgba(0,0,0,0.65)",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute animate-bounce text-3xl drop-shadow-lg"
+            style={{
+              top: rect.bottom + PADDING + 2,
+              left: rect.left + rect.width / 2 - 16,
+            }}
+            aria-hidden
+          >
+            👆
+          </div>
+        </>
       ) : (
         <div className="absolute inset-0 bg-black/65" />
       )}
@@ -113,7 +125,10 @@ export function TutorialOverlay() {
               </button>
             )}
             <button
-              onClick={() => nextTutorialStep(TUTORIAL_STEPS.length - 1)}
+              onClick={() => {
+                nextTutorialStep(TUTORIAL_STEPS.length - 1);
+                if (isLast) router.push("/buscar");
+              }}
               className="rounded-lg bg-ml-blue px-3 py-1.5 text-xs font-bold text-white"
             >
               {isLast ? "Concluir" : "Próximo"}
